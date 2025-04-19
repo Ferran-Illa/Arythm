@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdio.h> 
 #include <stdlib.h>
 #include <math.h>
 #include <SDL2/SDL.h>
@@ -52,7 +52,7 @@ Matrix matrix_product(const Matrix *a, const Matrix *b) {
         exit(EXIT_FAILURE);
     }
 
-    Matrix result = create_matrix(a->rows, b->cols);
+    Matrix result = create_matrix(a->rows, b->cols); 
 
     for (int i = 0; i < a->rows; i++) {
         for (int j = 0; j < b->cols; j++) {
