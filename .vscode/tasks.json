@@ -1,0 +1,26 @@
+{
+    // See https://code.visualstudio.com/docs/editor/tasks for more information
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build with GCC",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "-g",
+                "${file}",
+                "-o",
+                "${fileBasenameNoExtension}.exe",
+                "-lSDL2"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [
+                "$gcc" // Matches GCC compiler errors and warnings. See https://code.visualstudio.com/docs/editor/tasks#_defining-a-problem-matcher
+            ],
+            "detail": "Builds the active C file and outputs an executable using GCC"
+        }
+    ]
+}
