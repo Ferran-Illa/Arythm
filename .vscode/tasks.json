@@ -8,7 +8,7 @@
             "command": "gcc",
             "args": [
                 "-g",
-                "${file}",
+                "*.c",
                 "-o",
                 "${fileBasenameNoExtension}.exe",
                 "-lSDL2"
