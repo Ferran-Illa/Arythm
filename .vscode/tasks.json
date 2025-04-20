@@ -11,7 +11,8 @@
                 "*.c",
                 "-o",
                 "${fileBasenameNoExtension}.exe",
-                "-lSDL2"
+                "-lSDL2",
+                "-lm"
             ],
             "group": {
                 "kind": "build",

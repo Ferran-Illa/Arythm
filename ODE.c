@@ -1,59 +1,69 @@
+#include "include/common.h"
+#include "include/functions.h"
+#include <math.h>
+
 #ifndef ODE_H
 #define ODE_H
 
-#include "include/common.h"
-#include "include/functions.h"
-#include "include/ODE.h" 
  // --------------------------- ODE DEFINITION -------------------------
- // param=[tv+, tv1-, tv2-, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv]
+ // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv]
  // y=[V, v, w]
  // p= H(V-param[10])   ; q= H(V-param[11])
 
-double H(double x) {
-    if (x < 0) {
-        return 0.0; // Return 0 for negative inputs
-    } else {
-        return 1.0; // Return 1 for non-negative inputs
-    }
+
+double mIsi(double *y, double *param) 
+{
+    return ( y[2]*(1 + tanh( param[9]*(y[0]-param[10]) ) ) / (2*param[8]) );
 }
-double tauvminus(double *y, double *param) {
-        return (1 - H(y[0] - param[11])) * param[1] + H(y[0] - param[11]) * param[2];
-    }
-
-double Ifi(double *y, double *param) {
-        return ( -y[1]*H(y[0]-param[10])*(y[0]-param[10])*(1-y[0])/param[4]);
-    }
-
-double Iso(double *y, double *param) {
-        return ( y[0]*(1-H(y[0]-param[10]))/param[5]+H(y[0]-param[10])/param[6]);
-    }
-
-double Isi(double *y, double *param) {
-        return ( -y[2]*(1+tanh(param[8]*(y[0]-param[9])))/(2*param[7]));
-    }
 
 
 void ODE_func(double t, double *y, double *dydt, double *param) { // Represents a function for solving ordinary differential equations (ODEs)
-    dydt[0] = - Ifi(y, param) - Iso(y, param) - Isi(y, param);
-    dydt[1] = (1 - H(y[0] - param[10])) * (1 - y[1]) / tauvminus(y, param) - H(y[0] - param[10]) * y[1] / param[0];
+    
+    // volatile states this should be stored in RAM, as these values are temporary
+    // All heaviside functions are replaced by if statements.
+        
+    volatile double Volt; // Voltage, there is a 1uF/cm2 capacitor in the membrane, ommited due to the 1.
+    volatile double vdt;
+    volatile double wdt;
+        
+    if(y[0] >= param[11]) // Action of p = 1
+    {
+        // Seems like 1/param[7] should be multiplied by y[0], possibly a mistake in the original code?
+        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param); // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
+        vdt =  - y[1] / param[0];
+        wdt =  - y[2] / param[3];
+    }
+    else // p = 0
+    {
+        Volt = - y[0]/param[6] + mIsi(y, param); // V = (- Ifi - Iso - Isi )/ Cm, but Ifi = 0
+        wdt =  (1 - y[2]) / param[4];
+
+        if(y[0] >= param[12]) // Action of tauvminus (q = 1)
+        {
+            vdt = (1 - y[1]) / param[2];
+        }
+        else // q = 0
+        {
+            vdt = (1 - y[1]) / param[1];
+        }
+    }
+
+    dydt[0] = Volt; // dV/dt
+    dydt[1] = vdt; // dv/dt
+    dydt[2] = wdt; // dw/dt
 }
 
 
-
-
-
- 
 // ---------------------------- ODE SOLVER ---------------------------
 
-typedef void (*ODEFunction)(double, double *, double *, double *); // Ensure ODEFunction matches ODE_func signature
 
-
-Matrix euler_integration_multidimensional(ODEFunction ODE_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param) {
+Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param) {
     double t = initial_t;
     double y[dim]; // Current state
     double dydt[dim]; // Derivatives
+
     for (int i = 0; i < dim; i++) {
-        y[i] = initial_y[i]; // Initialize y
+        y[i] = initial_y[i]; // Initialize y // Maybe initial_y is redundant if it is directly substituted by y.
     }
 
     Matrix result = create_matrix(dim + 1, num_steps); // rows: 1 for t, dim for y

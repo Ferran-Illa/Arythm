@@ -16,6 +16,6 @@
 #endif // UI_HEADER_H
 
 #ifndef ODE_H
-    extern Matrix euler_integration(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double initial_y);
-    extern double expODE(double t, double y);
-#endif // ODE_H
+    extern void ODE_func(double t, double *y, double *dydt, double *param);
+    extern Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param);    
+#endif // ODE_H 
