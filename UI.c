@@ -27,7 +27,7 @@ void plot_with_sdl(const Vector *x, const Vector *y) {
     }
 
     // Create an SDL renderer
-    SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
     if (!renderer) {
         fprintf(stderr, "SDL_CreateRenderer Error: %s\n", SDL_GetError());
         SDL_DestroyWindow(win);
@@ -36,8 +36,12 @@ void plot_with_sdl(const Vector *x, const Vector *y) {
     }
 
     // Clear the screen
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White background
-    SDL_RenderClear(renderer);
+    if (SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255) != 0) {
+        fprintf(stderr, "SDL_SetRenderDrawColor Error: %s\n", SDL_GetError());
+    }
+    if (SDL_RenderClear(renderer) != 0) {
+        fprintf(stderr, "SDL_RenderClear Error: %s\n", SDL_GetError());
+    }
 
     // Draw the plot
     SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // Blue for the plot
@@ -46,7 +50,9 @@ void plot_with_sdl(const Vector *x, const Vector *y) {
         int y1 = (int)(300 - y->data[i] * 60); // Scale and invert y
         int x2 = (int)(x->data[i + 1] * 800);
         int y2 = (int)(300 - y->data[i + 1] * 60);
-        SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+        if (SDL_RenderDrawLine(renderer, x1, y1, x2, y2) != 0) {
+            fprintf(stderr, "SDL_RenderDrawLine Error: %s\n", SDL_GetError());
+        }
     } // TODO: Add axes and labels; Automatically scale the plot to fit the data
 
     // Present the renderer
