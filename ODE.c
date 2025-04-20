@@ -21,7 +21,7 @@ void ODE_func(double t, double *y, double *dydt, double *param) { // Represents 
     
     // volatile states this should be stored in RAM, as these values are temporary
     // All heaviside functions are replaced by if statements.
-        
+
     volatile double Volt; // Voltage, there is a 1uF/cm2 capacitor in the membrane, ommited due to the 1.
     volatile double vdt;
     volatile double wdt;
@@ -58,6 +58,7 @@ void ODE_func(double t, double *y, double *dydt, double *param) { // Represents 
 
 
 Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param) {
+    
     double t = initial_t;
     double y[dim]; // Current state
     double dydt[dim]; // Derivatives

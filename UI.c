@@ -6,7 +6,7 @@
 // --------------------------- UI & GRAPHICS ---------------------------
 // Function to plot data using SDL
 
-void plot_with_sdl(const Vector *x, const Vector *y) {
+void plot_with_sdl(const Vector *x, const Vector *y, const double *axes) {
     if (x->size != y->size) {
         fprintf(stderr, "Vectors x and y must have the same size for plotting.\n");
         return;
@@ -19,7 +19,9 @@ void plot_with_sdl(const Vector *x, const Vector *y) {
     }
 
     // Create an SDL window
-    SDL_Window *win = SDL_CreateWindow("2D Plot", 100, 100, 800, 600, SDL_WINDOW_SHOWN);
+    int window_width = 800;
+    int window_height = 600;
+    SDL_Window *win = SDL_CreateWindow("2D Plot", 100, 100, window_width, window_height, SDL_WINDOW_SHOWN);
     if (!win) {
         fprintf(stderr, "SDL_CreateWindow Error: %s\n", SDL_GetError());
         SDL_Quit();
@@ -43,17 +45,46 @@ void plot_with_sdl(const Vector *x, const Vector *y) {
         fprintf(stderr, "SDL_RenderClear Error: %s\n", SDL_GetError());
     }
 
+    // Determine scaling factors and offsets to fit data within the window
+    double x_min = axes[0], x_max = axes[1], y_min = axes[2], y_max = axes[3];
+    double x_scale = window_width / (x_max - x_min);
+    double y_scale = window_height / (y_max - y_min);
+
+    // Draw grid and ticks
+    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // Light gray for the grid
+    double xtick = (x_max - x_min) / 10; // Example: 10 ticks on x-axis
+    double ytick = (y_max - y_min) / 10; // Example: 10 ticks on y-axis
+
+    for (double x_tick = x_min; x_tick <= x_max; x_tick += xtick) {
+        int x_pos = (int)((x_tick - x_min) * x_scale);
+        SDL_RenderDrawLine(renderer, x_pos, 0, x_pos, window_height); // Vertical grid line
+    }
+
+    for (double y_tick = y_min; y_tick <= y_max; y_tick += ytick) {
+        int y_pos = window_height - (int)((y_tick - y_min) * y_scale);
+        SDL_RenderDrawLine(renderer, 0, y_pos, window_width, y_pos); // Horizontal grid line
+    }
+
+    // Draw axes
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Black for the axes
+    
+    int x_axis_pos = window_height - (int)((0.0 - y_min) * y_scale); // Y=0 line
+    int y_axis_pos = (int)((0.0 - x_min) * x_scale); // X=0 line
+
+    SDL_RenderDrawLine(renderer, 0, x_axis_pos, window_width, x_axis_pos); // X-axis
+    SDL_RenderDrawLine(renderer, y_axis_pos, 0, y_axis_pos, window_height); // Y-axis
+
     // Draw the plot
     SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); // Blue for the plot
     for (int i = 0; i < x->size - 1; i++) {
-        int x1 = (int)(x->data[i] * 800); // Scale and center x
-        int y1 = (int)(300 - y->data[i] * 60); // Scale and invert y
-        int x2 = (int)(x->data[i + 1] * 800);
-        int y2 = (int)(300 - y->data[i + 1] * 60);
+        int x1 = (int)((x->data[i] - x_min) * x_scale);
+        int y1 = window_height - (int)((y->data[i] - y_min) * y_scale);
+        int x2 = (int)((x->data[i + 1] - x_min) * x_scale);
+        int y2 = window_height - (int)((y->data[i + 1] - y_min) * y_scale);
         if (SDL_RenderDrawLine(renderer, x1, y1, x2, y2) != 0) {
             fprintf(stderr, "SDL_RenderDrawLine Error: %s\n", SDL_GetError());
         }
-    } // TODO: Add axes and labels; Automatically scale the plot to fit the data
+    }
 
     // Present the renderer
     SDL_RenderPresent(renderer);

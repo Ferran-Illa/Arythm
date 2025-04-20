@@ -9,15 +9,16 @@ void main()
     double step_size = 0.1;
     int num_steps = 10;
     double initial_t = 0.0;
-    double initial_y[] = {10.0, 10.0, 10.0};
-    double param[] = {3.33, 10.0, 3.33, 3.33, 3.33, 3.33, 10.0, 13.03, 3.33, 10}; // Example parameters
+    double initial_y[] = {-60.0, 10.0, 10.0};
+     // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv]
+    double param[13] = {1,1,1,1,1,1,1,1,1,1,1,1,1}; // Example parameters
 
     Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param);
     print_matrix(&result); // Print the matrix for debugging
     /* 
         Cast the first row (time) to t and the second row (ode values) to y, 
         vectors are read linearly which makes casting rows to vectors feasible.
-        Temporary solution untila proper vectorization is implemented.  
+        Temporary solution until a proper vectorization is implemented.  
     */
     Vector t; Vector y;
     t.size = num_steps;
@@ -25,7 +26,8 @@ void main()
     t.data = result.data;
     y.data = result.data + num_steps; // Offset to the second row
     // Plot the results
-    plot_with_sdl(&t, &y);
+    double axes[4] = {0, step_size*(num_steps + 2), -70.0, 10.0}; // x_min, x_max, y_min, y_max
+    plot_with_sdl(&t, &y, axes);
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
  
     
