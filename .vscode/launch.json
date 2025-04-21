@@ -5,7 +5,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/${fileBasenameNoExtension}.exe",
+            "program": "${workspaceFolder}/${fileBasenameNoExtension}.sh",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
@@ -25,7 +25,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build with GCC",
+            "preLaunchTask": "${defaultBuildTask}",
             "logging": { // Add this block
                 "engineLogging": true,
                 "trace": true,

@@ -10,9 +10,9 @@
                 "-g",
                 "*.c",
                 "-o",
-                "${fileBasenameNoExtension}.exe",
+                "${fileBasenameNoExtension}.sh",
                 "-lSDL2",
-                "-lm"
+                "-lm",
             ],
             "group": {
                 "kind": "build",
@@ -21,7 +21,38 @@
             "problemMatcher": [
                 "$gcc" // Matches GCC compiler errors and warnings. See https://code.visualstudio.com/docs/editor/tasks#_defining-a-problem-matcher
             ],
-            "detail": "Builds the active C file and outputs an executable using GCC"
+            "detail": "Builds the active C file and outputs an executable using GCC",
+        },
+        /*
+        {
+            "label": "Build for Windows",
+            "type": "shell",
+            "command": "x86_64-w64-mingw32-gcc",
+            "args": [
+                "*.c",
+                "-o",
+                "${fileBasenameNoExtension}.exe",
+                "-lSDL2",
+                "-lm",
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": [
+                "$gcc" // Matches GCC compiler errors and warnings. See https://code.visualstudio.com/docs/editor/tasks#_defining-a-problem-matcher
+            ],
+            "detail": "Builds the active C file and outputs a windows executable using mingw",
+        },
+        {
+            "label": "Build All",
+            "dependsOn": ["Build with GCC", "Build for Windows"],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
         }
+        */
     ]
 }
