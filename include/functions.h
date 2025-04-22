@@ -10,7 +10,7 @@
 #endif // ALGEBRA_H
 
 #ifndef UI_HEADER_H
-    extern void plot_with_sdl(const Vector *x, const Vector *y, const double *axes);
+    extern void plot_with_sdl(const Vector *x, const Vector *y, const double *axes, const double x_tick, const double y_tick);
     extern void plot(const Vector *x, const Vector *y);
     extern void print_matrix(const Matrix *mat);
 #endif // UI_HEADER_H

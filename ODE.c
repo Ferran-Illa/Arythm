@@ -8,7 +8,7 @@
  // --------------------------- ODE DEFINITION -------------------------
  // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv]
  // y=[V, v, w]
- // p= H(V-param[10])   ; q= H(V-param[11])
+ // p= H(V-param[11])   ; q= H(V-param[12])
 
 
 double mIsi(double *y, double *param) 

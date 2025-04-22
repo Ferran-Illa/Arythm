@@ -13,6 +13,8 @@
                 "${fileBasenameNoExtension}.sh",
                 "-lSDL2",
                 "-lm",
+                "-lSDL2_ttf"
+
             ],
             "group": {
                 "kind": "build",
