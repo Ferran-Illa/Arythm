@@ -36,7 +36,7 @@ void Render_Background(SDL_Renderer *renderer, int plot_width, int plot_height, 
     int tick_label_yoffset = -15; // y offset for grid labels (in pixels)
     
     volatile double label_num = x_tick;
-    int significant_digits = 4; // Number of significant digits for the labels
+    int significant_digits = 6; // Number of significant digits for the labels
     char label[significant_digits + 4]; // Buffer for the label text
 
     // Draw vertical grid lines and numbers
@@ -150,6 +150,7 @@ void plot_with_sdl(const Vector *x, const Vector *y, const double *axes, const d
         SDL_Quit();
         return;
     }
+    
 
     TTF_Font *font = TTF_OpenFont("/usr/share/fonts/truetype/msttcorefonts/times.ttf", 14); // Times New Roman size 14
     if (!font) {
