@@ -243,4 +243,11 @@ void print_matrix(const Matrix *mat) {
         printf("\n");
     }
 }
+
+void print_vector(const Vector *vec) {
+    for (int i = 0; i < vec->size; i++) {
+        printf("%.4g ", VEC((*vec), i));
+    }
+    printf("\n");
+}
 #endif // UI_HEADER_H

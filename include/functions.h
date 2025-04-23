@@ -13,6 +13,7 @@
     extern void plot_with_sdl(const Vector *x, const Vector *y, const double *axes, const double x_tick, const double y_tick);
     extern void plot(const Vector *x, const Vector *y);
     extern void print_matrix(const Matrix *mat);
+    extern void print_vector(const Vector *vec);
 #endif // UI_HEADER_H
 
 #ifndef ODE_H
