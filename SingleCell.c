@@ -27,13 +27,13 @@ int main(int argc, char *argv[])
 {
     // Example usage of the euler method ODE solver
 
-    double step_size = .05; 
-    int num_steps = 1E3;
+    double step_size = 0.05; 
+    int num_steps = 2000;
 
     double initial_t = 0.0;
-    double initial_y[] = {.2, .0, 1.0};
+    double initial_y[] = {0.2, 0.0, 0.0};
         // param=[     tv+, tv1-, tv2-, tw+, tw-, td, t0, tr,   tsi, k, Vsic, Vc, Vv]
-    double param[13] = {3.33, 19.6, 1000, 7, 11, .25, 8.3, 50, 45, 10, .85, .13, .055}; // Example parameters
+    double param[13] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04}; // Example parameters set 6
 
 
     for (int i  = 1; i < argc; i++){
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
             initial_t = atof(argv[++i]);
         } else if (strcmp(argv[i], "-y") == 0 && i + 1 < argc) {
             for (int j = 0; j < 3; j++) {
-                initial_y[0] = atof(argv[++i]);
+                initial_y[j] = atof(argv[++i]);
             }
         } else if (strcmp(argv[i], "-param") == 0 && i + 1 < argc) {
             for (int j = 0; j < 13; j++) {

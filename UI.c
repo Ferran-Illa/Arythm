@@ -8,7 +8,7 @@
 
 void axis_digits(char *label, double label_num, int significant_digits) {
     // Format the label with the specified number of significant digits
-    snprintf(label, significant_digits, "%.*g", significant_digits, label_num);
+    snprintf(label, significant_digits, "%.*f", significant_digits, label_num);
 }
 
 void Render_Background(SDL_Renderer *renderer, int plot_width, int plot_height, const double *axes, TTF_Font *font, double x_tick, double y_tick) {
