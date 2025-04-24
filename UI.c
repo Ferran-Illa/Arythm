@@ -138,18 +138,6 @@ void plot_with_sdl(const Vector *x, const Vector *y, const double *axes, const d
         fprintf(stderr, "Vectors x and y must have the same size for plotting.\n");
         return;
     }
-
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
-        return;
-    }
-
-    if (TTF_Init() == -1) {
-        fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
-        SDL_Quit();
-        return;
-    }
     
 
     TTF_Font *font = TTF_OpenFont("/usr/share/fonts/truetype/msttcorefonts/times.ttf", 14); // Times New Roman size 14

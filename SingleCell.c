@@ -27,6 +27,18 @@ int main(int argc, char *argv[])
 {
     // Example usage of the euler method ODE solver
 
+    // Initialize SDL
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    if (TTF_Init() == -1) {
+        fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
     double step_size = 0.05; 
     int num_steps = 2000;
 
