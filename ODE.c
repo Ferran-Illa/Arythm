@@ -6,7 +6,7 @@
 #define ODE_H
 
  // --------------------------- ODE DEFINITION -------------------------
- // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv]
+ // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J]
  // y=[V, v, w]
  // p= H(V-param[11])   ; q= H(V-param[12])
 
@@ -29,7 +29,7 @@ void ODE_func(double t, double *y, double *dydt, double *param) { // Represents 
     if(y[0] >= param[11]) // Action of p = 1
     {
         // Seems like 1/param[7] should be multiplied by y[0], possibly a mistake in the original code?
-        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param); // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
+        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param) + param[13]; // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
         vdt =  - y[1] / param[0];
         wdt =  - y[2] / param[3];
     }
