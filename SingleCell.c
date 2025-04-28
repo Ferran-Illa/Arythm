@@ -24,16 +24,16 @@ double array_min(double *arr, int size) {
 }
 
 void help_display() {
-    printf("Usage: ./SingleCell [OPTIONS]\n");
+    printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
     printf("  -s <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
     printf("  -n <num_steps>       Specify the number of steps for the ODE solver (default: 2000).\n");
     printf("  -t <initial_t>       Specify the initial time value (default: 0.0).\n");
     printf("  -y <y1> <y2> <y3>    Specify the initial values for the ODE system (default: 0.2, 0.0, 0.0).\n");
-    printf("  -param <p1> ... <p13> Specify the 13 parameters for the ODE system (default: predefined values).\n");
+    printf("  -param <p1> ... <p16> Specify the 16 parameters for the ODE system (default: predefined values).\n");
     printf("  -h, -help            Display this help message and exit.\n");
-    printf("\nExamples:\n");
-    printf("  ./SingleCell -s 0.01 -n 1000 -t 0.0 -y 0.1 0.2 0.3 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04\n");
+    printf("\nExamples (default):\n");
+    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1 2 100\n");
     printf("\nDescription:\n");
     printf("This program solves a system of ordinary differential equations (ODEs) using the Euler method.\n");
     printf("You can customize the solver's behavior using the options above.\n");
@@ -56,12 +56,12 @@ int main(int argc, char *argv[])
     }
 
     double step_size = 0.05; 
-    int num_steps = 2000;
+    int num_steps = 20000;
 
     double initial_t = 0.0;
     double initial_y[] = {0.2, 0.0, 0.0};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc, T_exc, T_tot]
-    double param[15] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .1, 2, 100}; // Example parameters set 6
+    double param[16] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .2, 1.0, 300}; // Example parameters set 6
 
 
     for (int i  = 1; i < argc; i++){
@@ -71,12 +71,12 @@ int main(int argc, char *argv[])
             num_steps = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
             initial_t = atof(argv[++i]);
-        } else if (strcmp(argv[i], "-y") == 0 && i + 1 < argc) {
+        } else if (strcmp(argv[i], "-y") == 0 && i + 3 < argc) {
             for (int j = 0; j < 3; j++) {
                 initial_y[j] = atof(argv[++i]);
             }
-        } else if (strcmp(argv[i], "-param") == 0 && i + 1 < argc) {
-            for (int j = 0; j < 15; j++) {
+        } else if (strcmp(argv[i], "-param") == 0 && i + 16 < argc) {
+            for (int j = 0; j < 16; j++) {
                 param[j] = atof(argv[++i]);
             }
         } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
