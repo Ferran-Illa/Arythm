@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
 
     double initial_t = 0.0;
     double initial_y[] = {0.2, 0.0, 0.0};
-        // param=[     tv+, tv1-, tv2-, tw+, tw-, td, t0, tr,   tsi, k, Vsic, Vc, Vv]
-    double param[15] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .0, .0}; // Example parameters set 6
+        // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc, T_exc, T_tot]
+    double param[15] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .1, 2, 100}; // Example parameters set 6
 
 
     for (int i  = 1; i < argc; i++){
