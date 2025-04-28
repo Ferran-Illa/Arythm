@@ -6,7 +6,7 @@
 #define ODE_H
 
  // --------------------------- ODE DEFINITION -------------------------
- // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J]
+ // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J, T]
  // y=[V, v, w]
  // p= H(V-param[11])   ; q= H(V-param[12])
 
