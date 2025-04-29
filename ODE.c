@@ -6,9 +6,10 @@
 #define ODE_H
 
  // --------------------------- ODE DEFINITION -------------------------
- // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc, T_exc, T_tot]
+ // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
  // y=[V, v, w]
  // p= H(V-param[11])   ; q= H(V-param[12])
+ // ode_param=[ T_exc, T_tot]
 
 
 double mIsi(double *y, double *param) 
@@ -17,7 +18,7 @@ double mIsi(double *y, double *param)
 }
 
 
-void ODE_func(double t, double *y, double *dydt, double *param) { // Represents a function for solving ordinary differential equations (ODEs)
+void ODE_func(double t, double *y, double *dydt, const double *param, const double *ode_param) { // Represents a function for solving ordinary differential equations (ODEs)
     
     // volatile states this should be stored in RAM, as these values are temporary
     // All heaviside functions are replaced by if statements.
@@ -27,19 +28,18 @@ void ODE_func(double t, double *y, double *dydt, double *param) { // Represents 
     volatile double wdt;
 
     //excitation control variables
-    
-    double J_exc=param[13];// excitation current
-    double T_exc =param[14]; //excitation duration
-    double T_tot = param[15]; // total period between excitations
+    const double T_exc =param[14]; //excitation duration
+    const double J_exc=param[13];// excitation current
+    const double T_tot = param[15]; // total period between excitations
 
     static double t_start = 0; // excitation starting time
-    double t_diff = t - t_start; // time difference since the last excitation
+    double t_diff;
 
         
     if(y[0] >= param[11]) // Action of p = 1
     {
         // Seems like 1/param[7] should be multiplied by y[0], possibly a mistake in the original code?
-        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param); // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
+        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param) + param[13]; // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
         vdt =  - y[1] / param[0];
         wdt =  - y[2] / param[3];
     }
@@ -58,10 +58,10 @@ void ODE_func(double t, double *y, double *dydt, double *param) { // Represents 
         }
     }
 
-    if(t_diff >= (T_tot - T_exc) && t_diff <= T_tot) // Active excitation at the end of the period
-    { Volt += J_exc; } // If the excitation is active, add the excitation current to the voltage
-
-    if(t_diff >= T_tot)
+    t_diff = t - t_start; // Calculate the time difference since the last excitation
+    if(t_diff <= T_exc)
+    { Volt += J_exc; } // If the excitation is active, add the current to the voltage
+    else if(t_diff >= T_tot)
     { t_start = t; } // Reset the timer
 
 
