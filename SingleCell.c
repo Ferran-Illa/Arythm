@@ -70,7 +70,8 @@ int main(int argc, char *argv[])
     double initial_t = 0.0;
     double initial_y[] = {0.2, 0.0, 0.0};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc, T_exc, T_tot]
-    double param[16] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .2, 1.0, 300}; // Example parameters set 6
+    double param[16] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .2}; // Example parameters set 6
+    double ode_param[1] = {2, 100}; // Example parameters 
 
     // Input parsing
     for (int i  = 1; i < argc; i++){
