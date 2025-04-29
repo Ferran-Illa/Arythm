@@ -38,10 +38,11 @@ void help_display() {
     printf("  -n <num_steps>       Specify the number of steps for the ODE solver (default: 2000).\n");
     printf("  -t <initial_t>       Specify the initial time value (default: 0.0).\n");
     printf("  -y <y1> <y2> <y3>    Specify the initial values for the ODE system (default: 0.2, 0.0, 0.0).\n");
-    printf("  -param <p1> ... <p16> Specify the 16 parameters for the ODE system (default: predefined values).\n");
+    printf("  -param <p1> ... <p14> Specify the 14 parameters for the ODE system (default: predefined values).\n");
+    printf("  -odeparam <op1 op2>  Specify the initial time value (default: 0.0).\n");
     printf("  -h, -help            Display this help message and exit.\n");
     printf("\nExamples (default):\n");
-    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1 2 100\n");
+    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -ode_param 2 100\n");
     printf("\nDescription:\n");
     printf("This program solves a system of ordinary differential equations (ODEs) using the Euler method.\n");
     printf("You can customize the solver's behavior using the options above.\n");

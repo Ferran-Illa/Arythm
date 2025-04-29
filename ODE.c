@@ -28,9 +28,9 @@ void ODE_func(double t, double *y, double *dydt, const double *param, const doub
     volatile double wdt;
 
     //excitation control variables
-    const double T_exc =param[14]; //excitation duration
-    const double J_exc=param[13];// excitation current
-    const double T_tot = param[15]; // total period between excitations
+    const double T_exc = ode_param[0]; //excitation duration
+    const double J_exc = param[13];// excitation current
+    const double T_tot = ode_param[1]; // total period between excitations
 
     static double t_start = 0; // excitation starting time
     double t_diff;
