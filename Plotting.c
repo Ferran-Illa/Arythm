@@ -548,6 +548,21 @@ void render_text(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x
     }
 }
 
+// Rendering Rotated Text (Y-Label)
+void render_rotated_text(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x, int y, double angle, Color color) {
+    SDL_Color sdl_color = {color.r, color.g, color.b, color.a};
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text, sdl_color);
+    if (surface) {
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture) {
+            SDL_Rect dest_rect = {x, y, surface->w, surface->h};
+            SDL_Point center = {surface->w / 2, surface->h / 2}; // Rotate around the center
+            SDL_RenderCopyEx(renderer, texture, NULL, &dest_rect, angle, &center, SDL_FLIP_NONE);
+            SDL_DestroyTexture(texture);
+        }
+        SDL_FreeSurface(surface);
+    }
+}
 // MODIFIED: Function to calculate legend dimensions
 void calculate_legend_dimensions(Plot* plot, TTF_Font* font, int* width, int* height) {
     int max_label_width = 0;
@@ -606,7 +621,7 @@ void draw_legend(SDL_Renderer* renderer, TTF_Font* font, Plot* plot) {
         
         // Draw line/marker sample
         if (series->plot_type == PLOT_LINE || series->plot_type == PLOT_SCATTER || series->plot_type == PLOT_STEM) {
-            if (series->plot_type != PLOT_SCATTER && series->line_style != MARKER_NONE) {
+            if (series->plot_type != PLOT_SCATTER ) { // && series->line_style != MARKER_NONE // Cut out
                 draw_line(renderer, legend_x + padding, y + item_height/2, 
                          legend_x + padding + line_length, y + item_height/2, 
                          series->line_style, series->line_width, series->color, plot->legend_area);
@@ -693,15 +708,15 @@ void calculate_layout(Plot* plot, TTF_Font* font, TTF_Font* title_font) {
     
     plot->x_label_area = (Rect){
         plot->margin_left, 
-        plot->window_height - plot->margin_bottom + padding, 
+        plot->window_height - plot->margin_bottom + 2*padding + max_x_tick_height, 
         plot->plot_area.width,
         x_label_height
     };
     
     plot->y_label_area = (Rect){
-        padding, 
+        -padding, // God knows why this is needed to correctly position the label
         plot->margin_top, 
-        y_label_height,
+        y_label_width,
         plot->plot_area.height
     };
 }
@@ -1166,11 +1181,11 @@ PlotError plot_show(Plot* plot) {
             int text_height = surface->h;
             SDL_FreeSurface(surface);
             
-            // FIXED: Position y-axis label properly
-            render_text(renderer, font, plot->y_label, 
+            // Rotate y-axis label
+            render_rotated_text(renderer, font, plot->y_label, 
                        plot->y_label_area.x, 
                        plot->y_label_area.y + plot->y_label_area.height / 2, 
-                       plot->text_color, false);
+                       -90, plot->text_color);
         }
         
         // Draw title

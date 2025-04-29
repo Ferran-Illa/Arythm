@@ -39,7 +39,7 @@ void help_display() {
     printf("  -t <initial_t>       Specify the initial time value (default: 0.0).\n");
     printf("  -y <y1> <y2> <y3>    Specify the initial values for the ODE system (default: 0.2, 0.0, 0.0).\n");
     printf("  -param <p1> ... <p14> Specify the 14 parameters for the ODE system (default: predefined values).\n");
-    printf("  -ode_param <op1> <op2>  Specify the initial time value (default: predefined).\n");
+    printf("  -exc <op1> <op2>  Specify the initial time value (default: predefined).\n");
     printf("  -h, -help            Display this help message and exit.\n");
     printf("\nExamples (default):\n");
     printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -ode_param 2 100\n");
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
             for (int j = 0; j < 14; j++) {
                 param[j] = atof(argv[++i]);
             }
-        } else if(strcmp(argv[i], "-odeset") == 0 && i + 2 < argc) {
+        } else if(strcmp(argv[i], "-exc") == 0 && i + 2 < argc) {
             for (int j = 0; j < 2; j++) {
                 excitation[j] = atof(argv[++i]);
             }
