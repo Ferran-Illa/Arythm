@@ -18,7 +18,7 @@ double mIsi(double *y, double *param)
 }
 
 
-void ODE_func(double t, double *y, double *dydt, double* param, double *ode_param) { // Represents a function for solving ordinary differential equations (ODEs)
+void ODE_func(double t, double *y, double *dydt, double* param, double *excitation) { // Represents a function for solving ordinary differential equations (ODEs)
     
     // volatile states this should be stored in RAM, as these values are temporary
     // All heaviside functions are replaced by if statements.
@@ -30,8 +30,8 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *ode_para
     //excitation control variables
     const double J_exc = param[13];// excitation current
 
-    const double T_exc = ode_param[0]; //excitation duration
-    const double T_tot = ode_param[1]; // total period between excitations
+    const double T_exc = excitation[0]; //excitation duration
+    const double T_tot = excitation[1]; // total period between excitations
 
     static double t_start = 0; // excitation starting time
     double t_diff;
@@ -40,7 +40,7 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *ode_para
     if(y[0] >= param[11]) // Action of p = 1
     {
         // Seems like 1/param[7] should be multiplied by y[0], possibly a mistake in the original code?
-        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param) + param[13]; // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
+        Volt = y[1] * (y[0]-param[11]) * (1-y[0]) / param[5] - 1/param[7] + mIsi(y, param); // V = (- Ifi - Iso - Isi )/ Cm, sign cancellations have been made
         vdt =  - y[1] / param[0];
         wdt =  - y[2] / param[3];
     }
@@ -61,10 +61,10 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *ode_para
 
     t_diff = t - t_start; // Calculate the time difference since the last excitation
 
-    if(t_diff <= T_exc)
+    if(t_diff >= (T_tot - T_exc) && t_diff < T_tot) // T_tot - T_exc makes the excitation activate at the end of the period. This allows initial conditions to evolve.
     { Volt += J_exc; } // If the excitation is active, add the current to the voltage
 
-    else if(t_diff >= T_tot)
+    if(t_diff >= T_tot)
     { t_start = t; } // Reset the timer
 
     dydt[0] = Volt; // dV/dt
@@ -76,12 +76,10 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *ode_para
 // ---------------------------- ODE SOLVER ---------------------------
 
 
-Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *ode_param) {
+Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *excitation) {
     
     double t = initial_t;
     double y[dim]; // Current state    double initial_y[] = {0.5, 0.1, 0.0}; // Perturbed initial conditions
-    double param[14] = {3.33, 9, 8, 250, 60, 0.395, 9, 33.33, 29, 15, 0.5, 0.13, 0.04, 1.0}; // Adjusted parameters
-    double ODE_param[2] = {2.0, 100}; // Adjusted excitation parameters
     double dydt[dim]; // Derivatives
 
     for (int i = 0; i < dim; i++) {
@@ -97,7 +95,7 @@ Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size
         }
 
         // Compute derivatives
-        ode_func(t, y, dydt, param, ode_param); // Call the ODE function to compute derivatives
+        ode_func(t, y, dydt, param, excitation); // Call the ODE function to compute derivatives
 
         // Update y using Euler's method
         for (int j = 0; j < dim; j++) {

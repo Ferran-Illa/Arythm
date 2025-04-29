@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     double initial_y[] = {0.2, 0.0, 0.0};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
-    double ODE_param[2] = {2.0, 300}; // Default parameters
+    double excitation[2] = {2.0, 300}; // Default Periodic excitation parameters [T_exc, T_tot]
 
     // Input parsing
     for (int i  = 1; i < argc; i++){
@@ -89,14 +89,13 @@ int main(int argc, char *argv[])
             for (int j = 0; j < 14; j++) {
                 param[j] = atof(argv[++i]);
             }
-        } else if(strcmp(argv[i], "-ode_param") == 0 && i + 2 < argc) {
+        } else if(strcmp(argv[i], "-odeset") == 0 && i + 2 < argc) {
             for (int j = 0; j < 2; j++) {
-                ODE_param[j] = atof(argv[++i]);
+                excitation[j] = atof(argv[++i]);
             }
         } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
             help_display();
             return 0;
-
         } else {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             help_display();
@@ -104,7 +103,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, ODE_param);
+    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
     //print_matrix(&result); // Print the matrix for debugging
     /* 
         Cast the first row (time) to t and the second row (ode values) to y, 
@@ -132,7 +131,7 @@ int main(int argc, char *argv[])
     plot_init(&plot);
     
     // Set plot properties
-    strcpy(plot.title, "Enhanced Plot");
+    strcpy(plot.title, "Alternance");
     strcpy(plot.x_label, "X-Axis");
     strcpy(plot.y_label, "Y-Axis");
 
