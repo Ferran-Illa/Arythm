@@ -70,9 +70,8 @@ int main(int argc, char *argv[])
     double initial_t = 0.0;
     double initial_y[] = {0.2, 0.0, 0.0};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc, T_exc, T_tot]
-    double param[16] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .2}; // Example parameters set 6
-    double ode_param[1] = {2, 100}; // Example parameters 
-
+    double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .1}; // Example parameters set 6
+    double ODE_param[2] = {2.0, 300}; // Default parameters
     // Input parsing
     for (int i  = 1; i < argc; i++){
         if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
@@ -85,17 +84,25 @@ int main(int argc, char *argv[])
             for (int j = 0; j < 3; j++) {
                 initial_y[j] = atof(argv[++i]);
             }
-        } else if (strcmp(argv[i], "-param") == 0 && i + 16 < argc) {
-            for (int j = 0; j < 16; j++) {
+        } else if (strcmp(argv[i], "-param") == 0 && i + 14 < argc) {
+            for (int j = 0; j < 14; j++) {
                 param[j] = atof(argv[++i]);
             }
         } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
             help_display();
             return 0;
+        } else if(strcmp(argv[i], "-odeparam") == 0 && i + 2 < argc) {
+            for (int j = 0; j < 2; j++) {
+                ODE_param[j] = atof(argv[++i]);
+            }
+        } else {
+            fprintf(stderr, "Unknown option: %s\n", argv[i]);
+            help_display();
+            return 1;
         }
     }
 
-    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param);
+    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, ODE_param);
     //print_matrix(&result); // Print the matrix for debugging
     /* 
         Cast the first row (time) to t and the second row (ode values) to y, 

@@ -26,7 +26,7 @@ typedef struct {
 #define MAT(m, i, j) (m.data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
 #define VEC(v, i) (v.data[i]) // Access element at i, zero-indexed!!
 
-typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param); // Ensure ODEFunction matches ODE_func signature
+typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param, double *ODE_param); // Ensure ODEFunction matches ODE_func signature
 // Represents a function for solving ordinary differential equations (ODEs),
 // where 't' is the independent variable (time) and 'y' is the dependent variable.
 

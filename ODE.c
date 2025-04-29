@@ -18,7 +18,7 @@ double mIsi(double *y, double *param)
 }
 
 
-void ODE_func(double t, double *y, double *dydt, const double *param, const double *ode_param) { // Represents a function for solving ordinary differential equations (ODEs)
+void ODE_func(double t, double *y, double *dydt, double *param, double *ode_param) { // Represents a function for solving ordinary differential equations (ODEs)
     
     // volatile states this should be stored in RAM, as these values are temporary
     // All heaviside functions are replaced by if statements.
@@ -28,8 +28,9 @@ void ODE_func(double t, double *y, double *dydt, const double *param, const doub
     volatile double wdt;
 
     //excitation control variables
-    const double T_exc = ode_param[0]; //excitation duration
     const double J_exc = param[13];// excitation current
+
+    const double T_exc = ode_param[0]; //excitation duration
     const double T_tot = ode_param[1]; // total period between excitations
 
     static double t_start = 0; // excitation starting time
@@ -59,11 +60,12 @@ void ODE_func(double t, double *y, double *dydt, const double *param, const doub
     }
 
     t_diff = t - t_start; // Calculate the time difference since the last excitation
+
     if(t_diff <= T_exc)
     { Volt += J_exc; } // If the excitation is active, add the current to the voltage
+
     else if(t_diff >= T_tot)
     { t_start = t; } // Reset the timer
-
 
     dydt[0] = Volt; // dV/dt
     dydt[1] = vdt; // dv/dt
@@ -74,7 +76,7 @@ void ODE_func(double t, double *y, double *dydt, const double *param, const doub
 // ---------------------------- ODE SOLVER ---------------------------
 
 
-Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param) {
+Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *ode_param) {
     
     double t = initial_t;
     double y[dim]; // Current state
@@ -93,7 +95,7 @@ Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size
         }
 
         // Compute derivatives
-        ode_func(t, y, dydt, param); // Call the ODE function to compute derivatives
+        ode_func(t, y, dydt, param, ode_param); // Call the ODE function to compute derivatives
 
         // Update y using Euler's method
         for (int j = 0; j < dim; j++) {
