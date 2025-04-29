@@ -23,6 +23,13 @@ double array_min(double *arr, int size) {
     return min;
 }
 
+Vector read_matrix_row(Matrix *matrix, int row){ // Reads a row of a Matrix as if it was a vector, DOES NOT MAKE A COPY!
+    Vector output;
+    output.size = matrix->cols;
+    output.data = matrix->data + row * matrix->cols; // Point to the start of the row
+    return output;
+}
+
 void help_display() {
     printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
@@ -92,11 +99,8 @@ int main(int argc, char *argv[])
         vectors are read linearly which makes casting rows to vectors feasible.
         Temporary solution until a proper vectorization is implemented.  
     */
-    Vector t; Vector y;
-    t.size = num_steps;
-    y.size = num_steps;
-    t.data = result.data;
-    y.data = result.data + num_steps; // Offset to the second row
+    Vector t = read_matrix_row(&result, 0); // Time data is stored in the first row
+    Vector y = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
 
     const double y_min = array_min(y.data, num_steps);
     const double y_max = array_max(y.data, num_steps);

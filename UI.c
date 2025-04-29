@@ -154,7 +154,7 @@ void plot_with_sdl(const Vector *x, const Vector *y, const double *axes, const d
     int plot_height = 600;
 
     // Set margins for the plot
-    int margin_left = 50;
+    int margin_left = 0;
     int margin_right = 50;
     int margin_top = 0;
     int margin_bottom = 10;
