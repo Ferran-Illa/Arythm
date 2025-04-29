@@ -3,8 +3,13 @@
 
 #include <stdio.h> 
 #include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <string.h>
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL2_gfxPrimitives.h>
 
 typedef struct {
     int rows;
@@ -23,5 +28,6 @@ typedef struct {
 typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param); // Ensure ODEFunction matches ODE_func signature
 // Represents a function for solving ordinary differential equations (ODEs),
 // where 't' is the independent variable (time) and 'y' is the dependent variable.
+
 
 #endif // COMMON_H

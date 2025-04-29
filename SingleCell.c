@@ -1,5 +1,6 @@
 #include "include/common.h"
 #include "include/functions.h"
+#include "include/plotting.h"
 
 // ----------------------------- MAIN -----------------------------
 
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc, T_exc, T_tot]
     double param[16] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .2, 1.0, 300}; // Example parameters set 6
 
-
+    // Input parsing
     for (int i  = 1; i < argc; i++){
         if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
             step_size = atof(argv[++i]);
@@ -113,7 +114,29 @@ int main(int argc, char *argv[])
     //print_vector(&t);
     //print_vector(&y);
 
-    plot_with_sdl(&t, &y, axes, x_tick, y_tick);
+    //plot_with_sdl(&t, &y, axes, x_tick, y_tick);
+
+    // Initialize plot
+    Plot plot;
+    plot_init(&plot);
+    
+    // Set plot properties
+    strcpy(plot.title, "Enhanced Plot");
+    strcpy(plot.x_label, "X-Axis");
+    strcpy(plot.y_label, "Y-Axis");
+
+    plot_add_series(&plot, &t, &y, "Alternance", 
+        (Color){0, 0, 0, 255}, // Black
+        LINE_SOLID, MARKER_SQUARE, 1, 1, PLOT_LINE);
+
+    // Show the plot
+    PlotError error = plot_show(&plot);
+    if (error != PLOT_SUCCESS) {
+        fprintf(stderr, "Error showing plot: %d\n", error);
+    }
+    
+    // Clean up
+    plot_cleanup(&plot);
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     return 0;
     // Axes are not well set

@@ -12,8 +12,9 @@
                 "-o",
                 "${fileBasenameNoExtension}.sh",
                 "-lSDL2",
-                "-lm",
-                "-lSDL2_ttf"
+                "-lSDL2_gfx",
+                "-lSDL2_ttf",
+                "-lm"
 
             ],
             "group": {

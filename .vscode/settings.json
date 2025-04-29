@@ -2,6 +2,7 @@
     "files.associations": {
         "common.h": "c",
         "functions.h": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "sdl.h": "c"
     }
 }
