@@ -18,7 +18,7 @@ double mIsi(double *y, double *param)
 }
 
 
-void ODE_func(double t, double *y, double *dydt, double *param, double *ode_param) { // Represents a function for solving ordinary differential equations (ODEs)
+void ODE_func(double t, double *y, double *dydt, double* param, double *ode_param) { // Represents a function for solving ordinary differential equations (ODEs)
     
     // volatile states this should be stored in RAM, as these values are temporary
     // All heaviside functions are replaced by if statements.
@@ -79,7 +79,9 @@ void ODE_func(double t, double *y, double *dydt, double *param, double *ode_para
 Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *ode_param) {
     
     double t = initial_t;
-    double y[dim]; // Current state
+    double y[dim]; // Current state    double initial_y[] = {0.5, 0.1, 0.0}; // Perturbed initial conditions
+    double param[14] = {3.33, 9, 8, 250, 60, 0.395, 9, 33.33, 29, 15, 0.5, 0.13, 0.04, 1.0}; // Adjusted parameters
+    double ODE_param[2] = {2.0, 100}; // Adjusted excitation parameters
     double dydt[dim]; // Derivatives
 
     for (int i = 0; i < dim; i++) {
