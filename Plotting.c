@@ -3,6 +3,13 @@
 
 #ifndef PLOTTING_C
 #define PLOTTING_C
+
+// ADDED: Function to check if a point is inside a rectangle
+bool point_in_rect(int x, int y, Rect rect) {
+    return x >= rect.x && x < rect.x + rect.width && 
+           y >= rect.y && y < rect.y + rect.height;
+}
+
 // Function to initialize a plot
 PlotError plot_init(Plot* plot) {
     if (plot == NULL) {
@@ -38,27 +45,48 @@ PlotError plot_init(Plot* plot) {
     plot->pan_y = 0.0;
     plot->auto_scale = true;
     
+    // Initialize fullscreen properties
+    plot->fullscreen = false;
+    plot->window_width = DEFAULT_WINDOW_WIDTH;
+    plot->window_height = DEFAULT_WINDOW_HEIGHT;
+    
+    // MODIFIED: Initialize margins with better defaults
+    plot->margin_left = DEFAULT_MARGIN * 1.5;   // Extra space for y-axis labels
+    plot->margin_right = DEFAULT_MARGIN;
+    plot->margin_top = DEFAULT_MARGIN;
+    plot->margin_bottom = DEFAULT_MARGIN * 1.5; // Extra space for x-axis labels
+    
+    // Initialize layout rectangles
+    plot->plot_area = (Rect){
+        plot->margin_left, 
+        plot->margin_top, 
+        plot->window_width - plot->margin_left - plot->margin_right,
+        plot->window_height - plot->margin_top - plot->margin_bottom
+    };
+    
+    // Other areas will be calculated during rendering
+    
     return PLOT_SUCCESS;
 }
 
 // Function to add a data series to a plot
-PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec, const char* label, 
-                            Color color, LineStyle line_style, MarkerType marker_type,
-                            int line_width, int marker_size, PlotType plot_type) 
+PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec, 
+        const char* label, Color color, LineStyle line_style, MarkerType marker_type,
+        int line_width, int marker_size, PlotType plot_type) 
 {
 
+    // Check for valid input
     if (x_vec == NULL || y_vec == NULL) {
-        return PLOT_ERROR_INVALID_VECTOR;
+    return PLOT_ERROR_INVALID_VECTOR;
     }
-    if(x_vec->size != y_vec->size) {
-        return PLOT_ERROR_SIZE_MISMATCH;
+    if (x_vec->size != y_vec->size) {
+    return PLOT_ERROR_SIZE_MISMATCH;
     }
 
-    const double *x_data = x_vec -> data;
-    const double *y_data = y_vec -> data;
-
-    int data_length = x_vec -> size;
-
+    const double * x_data = x_vec->data;
+    const double * y_data = y_vec->data;
+    int data_length = x_vec->size;    
+    
     if (plot == NULL || x_data == NULL || y_data == NULL || data_length <= 0) {
         return PLOT_ERROR_INVALID_DATA;
     }
@@ -219,7 +247,12 @@ double map_value(double value, double in_min, double in_max, double out_min, dou
 }
 
 // Function to draw a marker
-void draw_marker(SDL_Renderer* renderer, int x, int y, MarkerType marker_type, int size, Color color) {
+void draw_marker(SDL_Renderer* renderer, int x, int y, MarkerType marker_type, int size, Color color, Rect clip_rect) {
+    // MODIFIED: Skip drawing if outside the clip rectangle
+    if (!point_in_rect(x, y, clip_rect)) {
+        return;
+    }
+    
     switch (marker_type) {
         case MARKER_CIRCLE:
             filledCircleRGBA(renderer, x, y, size, color.r, color.g, color.b, color.a);
@@ -265,8 +298,95 @@ void draw_marker(SDL_Renderer* renderer, int x, int y, MarkerType marker_type, i
     }
 }
 
+// ADDED: Function to clip a line to a rectangle using Cohen-Sutherland algorithm
+#define INSIDE 0 // 0000
+#define LEFT 1   // 0001
+#define RIGHT 2  // 0010
+#define BOTTOM 4 // 0100
+#define TOP 8    // 1000
+
+// Compute the bit code for a point (x, y) using the clip rectangle
+int compute_code(int x, int y, Rect clip_rect) {
+    int code = INSIDE;
+    
+    if (x < clip_rect.x)           // to the left of clip window
+        code |= LEFT;
+    else if (x >= clip_rect.x + clip_rect.width)  // to the right of clip window
+        code |= RIGHT;
+    if (y < clip_rect.y)           // below the clip window
+        code |= BOTTOM;
+    else if (y >= clip_rect.y + clip_rect.height) // above the clip window
+        code |= TOP;
+    
+    return code;
+}
+
+// Cohen-Sutherland line clipping algorithm
+bool clip_line(int* x1, int* y1, int* x2, int* y2, Rect clip_rect) {
+    // Compute region codes for P1, P2
+    int code1 = compute_code(*x1, *y1, clip_rect);
+    int code2 = compute_code(*x2, *y2, clip_rect);
+    bool accept = false;
+    
+    while (true) {
+        // Both endpoints inside the clip window - trivially accept
+        if ((code1 | code2) == 0) {
+            accept = true;
+            break;
+        }
+        // Both endpoints outside the clip window in same region - trivially reject
+        else if ((code1 & code2) != 0) {
+            break;
+        }
+        // Some segment of the line may be inside the clip window - divide the line
+        else {
+            // Pick an endpoint outside the clip window
+            int code_out = code1 != 0 ? code1 : code2;
+            
+            int x, y;
+            
+            // Find intersection point
+            if (code_out & TOP) {
+                // Point is above the clip window
+                x = *x1 + (*x2 - *x1) * (clip_rect.y + clip_rect.height - 1 - *y1) / (*y2 - *y1);
+                y = clip_rect.y + clip_rect.height - 1;
+            } else if (code_out & BOTTOM) {
+                // Point is below the clip window
+                x = *x1 + (*x2 - *x1) * (clip_rect.y - *y1) / (*y2 - *y1);
+                y = clip_rect.y;
+            } else if (code_out & RIGHT) {
+                // Point is to the right of clip window
+                y = *y1 + (*y2 - *y1) * (clip_rect.x + clip_rect.width - 1 - *x1) / (*x2 - *x1);
+                x = clip_rect.x + clip_rect.width - 1;
+            } else if (code_out & LEFT) {
+                // Point is to the left of clip window
+                y = *y1 + (*y2 - *y1) * (clip_rect.x - *x1) / (*x2 - *x1);
+                x = clip_rect.x;
+            }
+            
+            // Replace the outside point with the intersection point
+            if (code_out == code1) {
+                *x1 = x;
+                *y1 = y;
+                code1 = compute_code(x, y, clip_rect);
+            } else {
+                *x2 = x;
+                *y2 = y;
+                code2 = compute_code(x, y, clip_rect);
+            }
+        }
+    }
+    
+    return accept;
+}
+
 // Function to draw a line with the specified style
-void draw_line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, LineStyle style, int width, Color color) {
+void draw_line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, LineStyle style, int width, Color color, Rect clip_rect) {
+    // MODIFIED: Clip the line to the plot area
+    if (!clip_line(&x1, &y1, &x2, &y2, clip_rect)) {
+        return; // Line is completely outside the clip rectangle
+    }
+    
     switch (style) {
         case LINE_SOLID:
             // For thicker lines
@@ -328,8 +448,11 @@ void draw_line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, LineStyle
                 int dot_x = x1 + (int)(pos * cos(angle));
                 int dot_y = y1 + (int)(pos * sin(angle));
                 
-                filledCircleRGBA(renderer, dot_x, dot_y, width/2 + 1, 
-                                color.r, color.g, color.b, color.a);
+                // Only draw dots inside the clip rectangle
+                if (point_in_rect(dot_x, dot_y, clip_rect)) {
+                    filledCircleRGBA(renderer, dot_x, dot_y, width/2 + 1, 
+                                    color.r, color.g, color.b, color.a);
+                }
                 
                 pos += dot_spacing;
             }
@@ -359,12 +482,15 @@ void draw_line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, LineStyle
                 int dash_x2 = x1 + (int)(end_pos * cos(angle));
                 int dash_y2 = y1 + (int)(end_pos * sin(angle));
                 
-                if (width > 1) {
-                    thickLineRGBA(renderer, dash_x1, dash_y1, dash_x2, dash_y2, width, 
-                                 color.r, color.g, color.b, color.a);
-                } else {
-                    lineRGBA(renderer, dash_x1, dash_y1, dash_x2, dash_y2, 
-                            color.r, color.g, color.b, color.a);
+                // Clip the dash line segment
+                if (clip_line(&dash_x1, &dash_y1, &dash_x2, &dash_y2, clip_rect)) {
+                    if (width > 1) {
+                        thickLineRGBA(renderer, dash_x1, dash_y1, dash_x2, dash_y2, width, 
+                                     color.r, color.g, color.b, color.a);
+                    } else {
+                        lineRGBA(renderer, dash_x1, dash_y1, dash_x2, dash_y2, 
+                                color.r, color.g, color.b, color.a);
+                    }
                 }
                 
                 pos = end_pos + gap_length;
@@ -374,8 +500,11 @@ void draw_line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, LineStyle
                     int dot_x = x1 + (int)(pos * cos(angle));
                     int dot_y = y1 + (int)(pos * sin(angle));
                     
-                    filledCircleRGBA(renderer, dot_x, dot_y, width/2 + 1, 
-                                    color.r, color.g, color.b, color.a);
+                    // Only draw dot if inside clip rectangle
+                    if (point_in_rect(dot_x, dot_y, clip_rect)) {
+                        filledCircleRGBA(renderer, dot_x, dot_y, width/2 + 1, 
+                                        color.r, color.g, color.b, color.a);
+                    }
                     
                     pos += dot_length + gap_length;
                 }
@@ -383,6 +512,17 @@ void draw_line(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, LineStyle
             break;
         }
     }
+}
+
+// MODIFIED: Function to get text dimensions
+void get_text_dimensions(TTF_Font* font, const char* text, int* width, int* height) {
+    if (font == NULL || text == NULL) {
+        *width = 0;
+        *height = 0;
+        return;
+    }
+    
+    TTF_SizeText(font, text, width, height);
 }
 
 // Function to render text with proper font
@@ -408,52 +548,202 @@ void render_text(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x
     }
 }
 
-// Function to draw the legend
+// MODIFIED: Function to calculate legend dimensions
+void calculate_legend_dimensions(Plot* plot, TTF_Font* font, int* width, int* height) {
+    int max_label_width = 0;
+    int line_length = 20;
+    int item_height = 25;
+    int padding = 20;
+    
+    for (int i = 0; i < plot->series_count; i++) {
+        int label_width, label_height;
+        get_text_dimensions(font, plot->series[i].label, &label_width, &label_height);
+        if (label_width > max_label_width) {
+            max_label_width = label_width;
+        }
+    }
+    
+    *width = line_length + max_label_width + padding;
+    *height = plot->series_count * item_height + padding;
+}
+
+// MODIFIED: Function to draw the legend with proper positioning
 void draw_legend(SDL_Renderer* renderer, TTF_Font* font, Plot* plot) {
     if (!plot->show_legend || plot->series_count == 0) return;
     
-    int legend_x = WINDOW_WIDTH - MARGIN - 150;
-    int legend_y = MARGIN + 20;
-    int line_length = 20;
-    int item_height = 25;
+    int legend_width, legend_height;
+    calculate_legend_dimensions(plot, font, &legend_width, &legend_height);
+    
+    // Calculate legend position - keep it inside the plot area
+    int legend_x = plot->plot_area.x + plot->plot_area.width - legend_width - 10;
+    int legend_y = plot->plot_area.y + 10;
+    
+    // Ensure legend stays within plot area
+    if (legend_x < plot->plot_area.x + 10) {
+        legend_x = plot->plot_area.x + 10;
+    }
+    
+    // Update legend area in the plot structure
+    plot->legend_area = (Rect){legend_x, legend_y, legend_width, legend_height};
     
     // Draw legend background
-    boxRGBA(renderer, legend_x - 10, legend_y - 10, 
-           legend_x + 160, legend_y + plot->series_count * item_height + 10, 
+    boxRGBA(renderer, legend_x, legend_y, 
+           legend_x + legend_width, legend_y + legend_height, 
            240, 240, 240, 200);
     
-    rectangleRGBA(renderer, legend_x - 10, legend_y - 10, 
-                 legend_x + 160, legend_y + plot->series_count * item_height + 10, 
+    rectangleRGBA(renderer, legend_x, legend_y, 
+                 legend_x + legend_width, legend_y + legend_height, 
                  100, 100, 100, 255);
+    
+    int line_length = 20;
+    int item_height = 25;
+    int padding = 10;
     
     // Draw legend items
     for (int i = 0; i < plot->series_count; i++) {
         DataSeries* series = &plot->series[i];
-        int y = legend_y + i * item_height;
+        int y = legend_y + padding + i * item_height;
         
         // Draw line/marker sample
         if (series->plot_type == PLOT_LINE || series->plot_type == PLOT_SCATTER || series->plot_type == PLOT_STEM) {
             if (series->plot_type != PLOT_SCATTER && series->line_style != MARKER_NONE) {
-                draw_line(renderer, legend_x, y + item_height/2, legend_x + line_length, y + item_height/2, 
-                         series->line_style, series->line_width, series->color);
+                draw_line(renderer, legend_x + padding, y + item_height/2, 
+                         legend_x + padding + line_length, y + item_height/2, 
+                         series->line_style, series->line_width, series->color, plot->legend_area);
             }
             
             if (series->marker_type != MARKER_NONE) {
-                draw_marker(renderer, legend_x + line_length/2, y + item_height/2, 
-                           series->marker_type, series->marker_size, series->color);
+                draw_marker(renderer, legend_x + padding + line_length/2, y + item_height/2, 
+                           series->marker_type, series->marker_size, series->color, plot->legend_area);
             }
         } else if (series->plot_type == PLOT_BAR) {
-            boxRGBA(renderer, legend_x, y + item_height/4, legend_x + line_length, y + 3*item_height/4, 
+            boxRGBA(renderer, legend_x + padding, y + item_height/4, 
+                   legend_x + padding + line_length, y + 3*item_height/4, 
                    series->color.r, series->color.g, series->color.b, series->color.a);
         }
         
         // Draw label
-        render_text(renderer, font, series->label, legend_x + line_length + 10, y + item_height/2 - 8, 
+        render_text(renderer, font, series->label, 
+                   legend_x + padding + line_length + 5, y + item_height/2 - 8, 
                    plot->text_color, false);
     }
 }
 
-// Function to handle mouse wheel events for zooming
+// ADDED: Function to calculate layout based on window size and text dimensions
+void calculate_layout(Plot* plot, TTF_Font* font, TTF_Font* title_font) {
+    // Calculate margins based on label sizes
+    int title_width, title_height;
+    int x_label_width, x_label_height;
+    int y_label_width, y_label_height;
+    int max_y_tick_width = 0;
+    int max_x_tick_height = 0;
+    
+    // Get title dimensions
+    get_text_dimensions(title_font, plot->title, &title_width, &title_height);
+    
+    // Get axis label dimensions
+    get_text_dimensions(font, plot->x_label, &x_label_width, &x_label_height);
+    get_text_dimensions(font, plot->y_label, &y_label_width, &y_label_height);
+    
+    // Estimate max tick label dimensions
+    char tick_label[MAX_LABEL_LENGTH];
+    for (int i = 0; i <= GRID_LINES; i++) {
+        // X-axis tick
+        snprintf(tick_label, MAX_LABEL_LENGTH, "%.2g", 
+                plot->x_range.min + (plot->x_range.max - plot->x_range.min) * i / GRID_LINES);
+        int width, height;
+        get_text_dimensions(font, tick_label, &width, &height);
+        if (height > max_x_tick_height) max_x_tick_height = height;
+        
+        // Y-axis tick
+        snprintf(tick_label, MAX_LABEL_LENGTH, "%.2g", 
+                plot->y_range.min + (plot->y_range.max - plot->y_range.min) * i / GRID_LINES);
+        get_text_dimensions(font, tick_label, &width, &height);
+        if (width > max_y_tick_width) max_y_tick_width = width;
+    }
+    
+    // Calculate margins with padding
+    int padding = 10;
+    plot->margin_top = title_height + padding * 2;
+    plot->margin_bottom = x_label_height + max_x_tick_height + padding * 2;
+    plot->margin_left = y_label_height + max_y_tick_width + padding * 2;
+    plot->margin_right = padding * 2;
+    
+    // Ensure minimum margins
+    if (plot->margin_top < DEFAULT_MARGIN) plot->margin_top = DEFAULT_MARGIN;
+    if (plot->margin_bottom < DEFAULT_MARGIN) plot->margin_bottom = DEFAULT_MARGIN;
+    if (plot->margin_left < DEFAULT_MARGIN) plot->margin_left = DEFAULT_MARGIN;
+    if (plot->margin_right < DEFAULT_MARGIN) plot->margin_right = DEFAULT_MARGIN;
+    
+    // Calculate plot area
+    plot->plot_area = (Rect){
+        plot->margin_left, 
+        plot->margin_top, 
+        plot->window_width - plot->margin_left - plot->margin_right,
+        plot->window_height - plot->margin_top - plot->margin_bottom
+    };
+    
+    // Calculate other areas
+    plot->title_area = (Rect){
+        0, 
+        padding, 
+        plot->window_width,
+        title_height
+    };
+    
+    plot->x_label_area = (Rect){
+        plot->margin_left, 
+        plot->window_height - plot->margin_bottom + padding, 
+        plot->plot_area.width,
+        x_label_height
+    };
+    
+    plot->y_label_area = (Rect){
+        padding, 
+        plot->margin_top, 
+        y_label_height,
+        plot->plot_area.height
+    };
+}
+
+// Function to toggle fullscreen mode
+void toggle_fullscreen(SDL_Window* window, Plot* plot) {
+    plot->fullscreen = !plot->fullscreen;
+    
+    if (plot->fullscreen) {
+        // Save current window size before going fullscreen
+        SDL_GetWindowSize(window, &plot->window_width, &plot->window_height);
+        
+        // Switch to fullscreen
+        SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+        
+        // Get the new window size
+        SDL_GetWindowSize(window, &plot->window_width, &plot->window_height);
+    } else {
+        // Switch back to windowed mode
+        SDL_SetWindowFullscreen(window, 0);
+        
+        // Restore window size
+        SDL_SetWindowSize(window, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+        plot->window_width = DEFAULT_WINDOW_WIDTH;
+        plot->window_height = DEFAULT_WINDOW_HEIGHT;
+    }
+    
+    printf("Window size: %d x %d\n", plot->window_width, plot->window_height);
+}
+
+// Function to handle window resize events
+void handle_window_resize(SDL_Window* window, Plot* plot, TTF_Font* font, TTF_Font* title_font) {
+    // Get the new window size
+    SDL_GetWindowSize(window, &plot->window_width, &plot->window_height);
+    
+    // Recalculate layout
+    calculate_layout(plot, font, title_font);
+    
+    printf("Window resized: %d x %d\n", plot->window_width, plot->window_height);
+}
+
+// MODIFIED: Function to handle mouse wheel events for zooming
 void handle_mouse_wheel(Plot* plot, SDL_MouseWheelEvent wheel) {
     // Zoom in/out
     double zoom_speed = 0.1;
@@ -470,19 +760,31 @@ void handle_mouse_wheel(Plot* plot, SDL_MouseWheelEvent wheel) {
     if (plot->zoom_factor > 10.0) plot->zoom_factor = 10.0;
 }
 
-// Function to handle mouse motion events for panning
+// MODIFIED: Function to handle mouse motion events for panning
 void handle_mouse_motion(Plot* plot, SDL_MouseMotionEvent motion, bool* dragging) {
+    // Only pan if mouse is inside plot area
+    if (!point_in_rect(motion.x, motion.y, plot->plot_area)) {
+        *dragging = false;
+        return;
+    }
+    
     if (motion.state & SDL_BUTTON_LMASK) {
         // Left button is pressed - pan the view
         if (!*dragging) {
             *dragging = true;
         } else {
-            double pan_speed = 0.01;
-            double dx = motion.xrel * pan_speed;
-            double dy = motion.yrel * pan_speed;
+            // FIXED: Proper panning that doesn't affect scaling
+            // Convert mouse movement to data space
+            double dx = motion.xrel / (double)plot->plot_area.width;
+            double dy = motion.yrel / (double)plot->plot_area.height;
             
-            plot->pan_x -= dx;
-            plot->pan_y += dy;
+            // Scale by the current view range
+            double x_range = (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
+            double y_range = (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
+            
+            // Update pan values (note: y is inverted in screen coordinates)
+            plot->pan_x -= dx * x_range;
+            plot->pan_y += dy * y_range;
         }
     } else {
         *dragging = false;
@@ -490,7 +792,7 @@ void handle_mouse_motion(Plot* plot, SDL_MouseMotionEvent motion, bool* dragging
 }
 
 // Function to handle key events
-void handle_key_event(Plot* plot, SDL_KeyboardEvent key) {
+void handle_key_event(Plot* plot, SDL_KeyboardEvent key, SDL_Window* window) {
     if (key.type == SDL_KEYDOWN) {
         switch (key.keysym.sym) {
             case SDLK_r:
@@ -533,23 +835,29 @@ void handle_key_event(Plot* plot, SDL_KeyboardEvent key) {
                     plot_auto_scale(plot);
                 }
                 break;
+                
+            case SDLK_F11:
+            case SDLK_f:
+                toggle_fullscreen(window, plot);
+                break;
         }
     }
 }
 
-// Function to draw a bar plot
+// MODIFIED: Function to draw a bar plot with clipping
 void draw_bar_plot(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
-    int bar_width = PLOT_WIDTH / (series->data_length * 2);
+    int plot_width = plot->plot_area.width;
+    int bar_width = plot_width / (series->data_length * 2);
     
     for (int i = 0; i < series->data_length; i++) {
         double x_val = series->x_data[i];
         double y_val = series->y_data[i];
         
         // Apply zoom and pan
-        double adjusted_x_min = plot->x_range.min - plot->pan_x * (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
-        double adjusted_x_max = plot->x_range.max + plot->pan_x * (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
-        double adjusted_y_min = plot->y_range.min - plot->pan_y * (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
-        double adjusted_y_max = plot->y_range.max + plot->pan_y * (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
+        double adjusted_x_min = plot->x_range.min + plot->pan_x;
+        double adjusted_x_max = plot->x_range.max + plot->pan_x;
+        double adjusted_y_min = plot->y_range.min + plot->pan_y;
+        double adjusted_y_max = plot->y_range.max + plot->pan_y;
         
         // Scale the range based on zoom factor
         double x_range_center = (adjusted_x_min + adjusted_x_max) / 2;
@@ -562,40 +870,57 @@ void draw_bar_plot(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
         adjusted_y_min = y_range_center - y_range_half;
         adjusted_y_max = y_range_center + y_range_half;
         
-        int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, MARGIN, WINDOW_WIDTH - MARGIN, plot->x_range.scale_type);
-        int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
-        int y_zero = (int)map_value(0, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
+        int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, 
+                              plot->plot_area.x, plot->plot_area.x + plot->plot_area.width, 
+                              plot->x_range.scale_type);
+        int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, 
+                              plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                              plot->y_range.scale_type);
+        int y_zero = (int)map_value(0, adjusted_y_min, adjusted_y_max, 
+                                   plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                                   plot->y_range.scale_type);
         
         // Ensure y_zero is within plot area
-        if (y_zero < MARGIN) y_zero = MARGIN;
-        if (y_zero > WINDOW_HEIGHT - MARGIN) y_zero = WINDOW_HEIGHT - MARGIN;
+        if (y_zero < plot->plot_area.y) y_zero = plot->plot_area.y;
+        if (y_zero > plot->plot_area.y + plot->plot_area.height) y_zero = plot->plot_area.y + plot->plot_area.height;
         
-        // Draw bar
-        if (y < y_zero) {
-            boxRGBA(renderer, x - bar_width/2, y, x + bar_width/2, y_zero, 
-                   series->color.r, series->color.g, series->color.b, series->color.a);
-        } else {
-            boxRGBA(renderer, x - bar_width/2, y_zero, x + bar_width/2, y, 
-                   series->color.r, series->color.g, series->color.b, series->color.a);
+        // Skip if bar is completely outside plot area
+        if (x + bar_width/2 < plot->plot_area.x || x - bar_width/2 > plot->plot_area.x + plot->plot_area.width) {
+            continue;
         }
         
+        // Clip bar to plot area
+        int bar_left = x - bar_width/2;
+        int bar_right = x + bar_width/2;
+        int bar_top = (y < y_zero) ? y : y_zero;
+        int bar_bottom = (y < y_zero) ? y_zero : y;
+        
+        if (bar_left < plot->plot_area.x) bar_left = plot->plot_area.x;
+        if (bar_right > plot->plot_area.x + plot->plot_area.width) bar_right = plot->plot_area.x + plot->plot_area.width;
+        if (bar_top < plot->plot_area.y) bar_top = plot->plot_area.y;
+        if (bar_bottom > plot->plot_area.y + plot->plot_area.height) bar_bottom = plot->plot_area.y + plot->plot_area.height;
+        
+        // Draw bar
+        boxRGBA(renderer, bar_left, bar_top, bar_right, bar_bottom,
+               series->color.r, series->color.g, series->color.b, series->color.a);
+        
         // Draw outline
-        rectangleRGBA(renderer, x - bar_width/2, y < y_zero ? y : y_zero, x + bar_width/2, y < y_zero ? y_zero : y, 
+        rectangleRGBA(renderer, bar_left, bar_top, bar_right, bar_bottom,
                      series->color.r * 0.8, series->color.g * 0.8, series->color.b * 0.8, series->color.a);
     }
 }
 
-// Function to draw a stem plot
+// MODIFIED: Function to draw a stem plot with clipping
 void draw_stem_plot(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
     for (int i = 0; i < series->data_length; i++) {
         double x_val = series->x_data[i];
         double y_val = series->y_data[i];
         
         // Apply zoom and pan
-        double adjusted_x_min = plot->x_range.min - plot->pan_x * (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
-        double adjusted_x_max = plot->x_range.max + plot->pan_x * (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
-        double adjusted_y_min = plot->y_range.min - plot->pan_y * (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
-        double adjusted_y_max = plot->y_range.max + plot->pan_y * (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
+        double adjusted_x_min = plot->x_range.min + plot->pan_x;
+        double adjusted_x_max = plot->x_range.max + plot->pan_x;
+        double adjusted_y_min = plot->y_range.min + plot->pan_y;
+        double adjusted_y_max = plot->y_range.max + plot->pan_y;
         
         // Scale the range based on zoom factor
         double x_range_center = (adjusted_x_min + adjusted_x_max) / 2;
@@ -608,21 +933,42 @@ void draw_stem_plot(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
         adjusted_y_min = y_range_center - y_range_half;
         adjusted_y_max = y_range_center + y_range_half;
         
-        int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, MARGIN, WINDOW_WIDTH - MARGIN, plot->x_range.scale_type);
-        int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
-        int y_zero = (int)map_value(0, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
+        int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, 
+                              plot->plot_area.x, plot->plot_area.x + plot->plot_area.width, 
+                              plot->x_range.scale_type);
+        int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, 
+                              plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                              plot->y_range.scale_type);
+        int y_zero = (int)map_value(0, adjusted_y_min, adjusted_y_max, 
+                                   plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                                   plot->y_range.scale_type);
         
         // Ensure y_zero is within plot area
-        if (y_zero < MARGIN) y_zero = MARGIN;
-        if (y_zero > WINDOW_HEIGHT - MARGIN) y_zero = WINDOW_HEIGHT - MARGIN;
+        if (y_zero < plot->plot_area.y) y_zero = plot->plot_area.y;
+        if (y_zero > plot->plot_area.y + plot->plot_area.height) y_zero = plot->plot_area.y + plot->plot_area.height;
         
-        // Draw stem line
-        lineRGBA(renderer, x, y_zero, x, y, 
-                series->color.r, series->color.g, series->color.b, series->color.a);
+        // Skip if point is outside plot area in x direction
+        if (x < plot->plot_area.x || x > plot->plot_area.x + plot->plot_area.width) {
+            continue;
+        }
         
-        // Draw marker at the top
-        draw_marker(renderer, x, y, series->marker_type != MARKER_NONE ? series->marker_type : MARKER_CIRCLE, 
-                   series->marker_size, series->color);
+        // Draw stem line with clipping
+        int line_x1 = x;
+        int line_y1 = y_zero;
+        int line_x2 = x;
+        int line_y2 = y;
+        
+        if (clip_line(&line_x1, &line_y1, &line_x2, &line_y2, plot->plot_area)) {
+            lineRGBA(renderer, line_x1, line_y1, line_x2, line_y2,
+                    series->color.r, series->color.g, series->color.b, series->color.a);
+        }
+        
+        // Draw marker at the top if it's inside the plot area
+        if (point_in_rect(x, y, plot->plot_area)) {
+            draw_marker(renderer, x, y, 
+                       series->marker_type != MARKER_NONE ? series->marker_type : MARKER_CIRCLE, 
+                       series->marker_size, series->color, plot->plot_area);
+        }
     }
 }
 
@@ -650,13 +996,13 @@ PlotError plot_show(Plot* plot) {
         return PLOT_ERROR_TTF_INIT;
     }
     
-    // Create window
+    // Create window with resizable flag
     SDL_Window* window = SDL_CreateWindow(plot->title, 
                                          SDL_WINDOWPOS_UNDEFINED, 
                                          SDL_WINDOWPOS_UNDEFINED, 
-                                         WINDOW_WIDTH, 
-                                         WINDOW_HEIGHT, 
-                                         SDL_WINDOW_SHOWN);
+                                         plot->window_width, 
+                                         plot->window_height, 
+                                         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (window == NULL) {
         fprintf(stderr, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
         TTF_Quit();
@@ -665,7 +1011,7 @@ PlotError plot_show(Plot* plot) {
     }
     
     // Create renderer
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);;
     if (renderer == NULL) {
         fprintf(stderr, "Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
@@ -695,6 +1041,9 @@ PlotError plot_show(Plot* plot) {
         }
     }
     
+    // Calculate initial layout
+    calculate_layout(plot, font, title_font);
+    
     // Main loop flag
     bool quit = false;
     bool dragging = false;
@@ -713,7 +1062,12 @@ PlotError plot_show(Plot* plot) {
             } else if (e.type == SDL_MOUSEMOTION) {
                 handle_mouse_motion(plot, e.motion, &dragging);
             } else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
-                handle_key_event(plot, e.key);
+                handle_key_event(plot, e.key, window);
+            } else if (e.type == SDL_WINDOWEVENT) {
+                if (e.window.event == SDL_WINDOWEVENT_RESIZED || 
+                    e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    handle_window_resize(window, plot, font, title_font);
+                }
             }
         }
         
@@ -726,10 +1080,10 @@ PlotError plot_show(Plot* plot) {
         SDL_RenderClear(renderer);
         
         // Apply zoom and pan
-        double adjusted_x_min = plot->x_range.min - plot->pan_x * (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
-        double adjusted_x_max = plot->x_range.max + plot->pan_x * (plot->x_range.max - plot->x_range.min) / plot->zoom_factor;
-        double adjusted_y_min = plot->y_range.min - plot->pan_y * (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
-        double adjusted_y_max = plot->y_range.max + plot->pan_y * (plot->y_range.max - plot->y_range.min) / plot->zoom_factor;
+        double adjusted_x_min = plot->x_range.min + plot->pan_x;
+        double adjusted_x_max = plot->x_range.max + plot->pan_x;
+        double adjusted_y_min = plot->y_range.min + plot->pan_y;
+        double adjusted_y_max = plot->y_range.max + plot->pan_y;
         
         // Scale the range based on zoom factor
         double x_range_center = (adjusted_x_min + adjusted_x_max) / 2;
@@ -744,16 +1098,16 @@ PlotError plot_show(Plot* plot) {
         
         // Draw plot area border
         rectangleRGBA(renderer, 
-                     MARGIN, MARGIN, 
-                     WINDOW_WIDTH - MARGIN, WINDOW_HEIGHT - MARGIN, 
+                     plot->plot_area.x, plot->plot_area.y, 
+                     plot->plot_area.x + plot->plot_area.width, plot->plot_area.y + plot->plot_area.height, 
                      plot->axis_color.r, plot->axis_color.g, plot->axis_color.b, plot->axis_color.a);
         
         // Draw grid lines if enabled
         if (plot->show_grid) {
             // Vertical grid lines
             for (int i = 1; i < GRID_LINES; i++) {
-                int x = MARGIN + (i * PLOT_WIDTH) / GRID_LINES;
-                lineRGBA(renderer, x, MARGIN, x, WINDOW_HEIGHT - MARGIN, 
+                int x = plot->plot_area.x + (i * plot->plot_area.width) / GRID_LINES;
+                lineRGBA(renderer, x, plot->plot_area.y, x, plot->plot_area.y + plot->plot_area.height, 
                         plot->grid_color.r, plot->grid_color.g, plot->grid_color.b, plot->grid_color.a);
                 
                 // Draw x-axis labels
@@ -769,13 +1123,13 @@ PlotError plot_show(Plot* plot) {
                 }
                 
                 snprintf(label, MAX_LABEL_LENGTH, "%.2g", value);
-                render_text(renderer, font, label, x, WINDOW_HEIGHT - MARGIN + 15, plot->text_color, true);
+                render_text(renderer, font, label, x, plot->plot_area.y + plot->plot_area.height + 15, plot->text_color, true);
             }
             
             // Horizontal grid lines
             for (int i = 1; i < GRID_LINES; i++) {
-                int y = MARGIN + (i * PLOT_HEIGHT) / GRID_LINES;
-                lineRGBA(renderer, MARGIN, y, WINDOW_WIDTH - MARGIN, y, 
+                int y = plot->plot_area.y + (i * plot->plot_area.height) / GRID_LINES;
+                lineRGBA(renderer, plot->plot_area.x, y, plot->plot_area.x + plot->plot_area.width, y, 
                         plot->grid_color.r, plot->grid_color.g, plot->grid_color.b, plot->grid_color.a);
                 
                 // Draw y-axis labels
@@ -791,25 +1145,39 @@ PlotError plot_show(Plot* plot) {
                 }
                 
                 snprintf(label, MAX_LABEL_LENGTH, "%.2g", value);
-                render_text(renderer, font, label, MARGIN - 30, y, plot->text_color, false);
+                
+                // FIXED: Position y-axis labels with proper spacing
+                int label_width, label_height;
+                get_text_dimensions(font, label, &label_width, &label_height);
+                render_text(renderer, font, label, plot->plot_area.x - label_width - 5, y, plot->text_color, false);
             }
         }
         
         // Draw axis labels
-        render_text(renderer, font, plot->x_label, WINDOW_WIDTH / 2, WINDOW_HEIGHT - MARGIN + 40, plot->text_color, true);
+        render_text(renderer, font, plot->x_label, 
+                   plot->x_label_area.x + plot->x_label_area.width / 2, 
+                   plot->x_label_area.y, 
+                   plot->text_color, true);
         
-        // Rotate text for y-axis label (simulate rotation by positioning)
+        // Draw y-axis label (rotated text simulation)
         SDL_Surface* surface = TTF_RenderText_Blended(font, plot->y_label, 
                                                     (SDL_Color){plot->text_color.r, plot->text_color.g, plot->text_color.b, plot->text_color.a});
         if (surface) {
             int text_height = surface->h;
             SDL_FreeSurface(surface);
             
-            render_text(renderer, font, plot->y_label, MARGIN - 40, WINDOW_HEIGHT / 2 - text_height / 2, plot->text_color, false);
+            // FIXED: Position y-axis label properly
+            render_text(renderer, font, plot->y_label, 
+                       plot->y_label_area.x, 
+                       plot->y_label_area.y + plot->y_label_area.height / 2, 
+                       plot->text_color, false);
         }
         
         // Draw title
-        render_text(renderer, title_font, plot->title, WINDOW_WIDTH / 2, MARGIN - 20, plot->text_color, true);
+        render_text(renderer, title_font, plot->title, 
+                   plot->title_area.x + plot->title_area.width / 2, 
+                   plot->title_area.y, 
+                   plot->text_color, true);
         
         // Draw all data series
         for (int s = 0; s < plot->series_count; s++) {
@@ -836,11 +1204,16 @@ PlotError plot_show(Plot* plot) {
                         double x_val = series->x_data[i];
                         double y_val = series->y_data[i];
                         
-                        int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, MARGIN, WINDOW_WIDTH - MARGIN, plot->x_range.scale_type);
-                        int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
+                        int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, 
+                                              plot->plot_area.x, plot->plot_area.x + plot->plot_area.width, 
+                                              plot->x_range.scale_type);
+                        int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, 
+                                              plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                                              plot->y_range.scale_type);
                         
-                        draw_marker(renderer, x, y, series->marker_type != MARKER_NONE ? series->marker_type : MARKER_CIRCLE, 
-                                   series->marker_size, series->color);
+                        draw_marker(renderer, x, y, 
+                                   series->marker_type != MARKER_NONE ? series->marker_type : MARKER_CIRCLE, 
+                                   series->marker_size, series->color, plot->plot_area);
                     }
                     break;
                     
@@ -853,12 +1226,21 @@ PlotError plot_show(Plot* plot) {
                         double x2_val = series->x_data[i+1];
                         double y2_val = series->y_data[i+1];
                         
-                        int x1 = (int)map_value(x1_val, adjusted_x_min, adjusted_x_max, MARGIN, WINDOW_WIDTH - MARGIN, plot->x_range.scale_type);
-                        int y1 = (int)map_value(y1_val, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
-                        int x2 = (int)map_value(x2_val, adjusted_x_min, adjusted_x_max, MARGIN, WINDOW_WIDTH - MARGIN, plot->x_range.scale_type);
-                        int y2 = (int)map_value(y2_val, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
+                        int x1 = (int)map_value(x1_val, adjusted_x_min, adjusted_x_max, 
+                                               plot->plot_area.x, plot->plot_area.x + plot->plot_area.width, 
+                                               plot->x_range.scale_type);
+                        int y1 = (int)map_value(y1_val, adjusted_y_min, adjusted_y_max, 
+                                               plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                                               plot->y_range.scale_type);
+                        int x2 = (int)map_value(x2_val, adjusted_x_min, adjusted_x_max, 
+                                               plot->plot_area.x, plot->plot_area.x + plot->plot_area.width, 
+                                               plot->x_range.scale_type);
+                        int y2 = (int)map_value(y2_val, adjusted_y_min, adjusted_y_max, 
+                                               plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                                               plot->y_range.scale_type);
                         
-                        draw_line(renderer, x1, y1, x2, y2, series->line_style, series->line_width, series->color);
+                        draw_line(renderer, x1, y1, x2, y2, 
+                                 series->line_style, series->line_width, series->color, plot->plot_area);
                     }
                     
                     // Draw markers if specified
@@ -867,10 +1249,14 @@ PlotError plot_show(Plot* plot) {
                             double x_val = series->x_data[i];
                             double y_val = series->y_data[i];
                             
-                            int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, MARGIN, WINDOW_WIDTH - MARGIN, plot->x_range.scale_type);
-                            int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, WINDOW_HEIGHT - MARGIN, MARGIN, plot->y_range.scale_type);
+                            int x = (int)map_value(x_val, adjusted_x_min, adjusted_x_max, 
+                                                  plot->plot_area.x, plot->plot_area.x + plot->plot_area.width, 
+                                                  plot->x_range.scale_type);
+                            int y = (int)map_value(y_val, adjusted_y_min, adjusted_y_max, 
+                                                  plot->plot_area.y + plot->plot_area.height, plot->plot_area.y, 
+                                                  plot->y_range.scale_type);
                             
-                            draw_marker(renderer, x, y, series->marker_type, series->marker_size, series->color);
+                            draw_marker(renderer, x, y, series->marker_type, series->marker_size, series->color, plot->plot_area);
                         }
                     }
                     break;
@@ -883,8 +1269,8 @@ PlotError plot_show(Plot* plot) {
         // Draw help text
         char help_text[256];
         snprintf(help_text, sizeof(help_text), 
-                "Mouse wheel: Zoom, Left drag: Pan, R: Reset view, G: Toggle grid, L: Toggle legend, A: Auto-scale, X/Y: Toggle log scale");
-        render_text(renderer, font, help_text, WINDOW_WIDTH / 2, WINDOW_HEIGHT - 15, plot->text_color, true);
+                "Mouse wheel: Zoom, Left drag: Pan, R: Reset view, G: Toggle grid, L: Legend, F: Fullscreen");
+        render_text(renderer, font, help_text, plot->window_width / 2, plot->window_height - 15, plot->text_color, true);
         
         // Update screen
         SDL_RenderPresent(renderer);
@@ -918,7 +1304,7 @@ void plot_cleanup(Plot* plot) {
     plot->series_count = 0;
 }
 
-#endif // PLOTTING_C
+#endif
 /*
 // Example usage
 int main() {
@@ -927,7 +1313,7 @@ int main() {
     plot_init(&plot);
     
     // Set plot properties
-    strcpy(plot.title, "Enhanced MATLAB-like Plot");
+    strcpy(plot.title, "Enhanced MATLAB-like Plot with Visual Fixes");
     strcpy(plot.x_label, "X-Axis");
     strcpy(plot.y_label, "Y-Axis");
     

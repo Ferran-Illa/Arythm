@@ -3,17 +3,16 @@
 #ifndef PLOTTING_H
 #define PLOTTING_H
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
-#define MARGIN 60
-#define PLOT_WIDTH (WINDOW_WIDTH - 2 * MARGIN)
-#define PLOT_HEIGHT (WINDOW_HEIGHT - 2 * MARGIN)
+#define DEFAULT_WINDOW_WIDTH 800
+#define DEFAULT_WINDOW_HEIGHT 600
+#define DEFAULT_MARGIN 70
 #define TICK_SIZE 5
 #define GRID_LINES 10
 #define MAX_LABEL_LENGTH 64
 #define MAX_DATA_SERIES 10
 #define DEFAULT_FONT_SIZE 14
 #define DEFAULT_FONT_PATH "/usr/share/fonts/truetype/msttcorefonts/times.ttf"
+
 
 // Line styles
 typedef enum {
@@ -75,6 +74,14 @@ typedef struct {
     bool visible;
 } DataSeries;
 
+// Rectangle structure for layout
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} Rect;
+
 // Plot structure
 typedef struct {
     char title[MAX_LABEL_LENGTH];
@@ -94,6 +101,22 @@ typedef struct {
     double pan_x;
     double pan_y;
     bool auto_scale;
+    
+    // Fullscreen related properties
+    bool fullscreen;         // Flag to track fullscreen state
+    int window_width;        // Current window width
+    int window_height;       // Current window height
+    int margin_left;         // Left margin (may be larger for y-axis labels)
+    int margin_right;        // Right margin
+    int margin_top;          // Top margin
+    int margin_bottom;       // Bottom margin (may be larger for x-axis labels)
+
+    // ADDED: Layout rectangles for different areas
+    Rect plot_area;          // The actual plotting area
+    Rect legend_area;        // Area for the legend
+    Rect title_area;         // Area for the title
+    Rect x_label_area;       // Area for x-axis label
+    Rect y_label_area;       // Area for y-axis label
 } Plot;
 
 // Error handling
@@ -106,8 +129,8 @@ typedef enum {
     PLOT_ERROR_FONT_LOAD,
     PLOT_ERROR_INVALID_DATA,
     PLOT_ERROR_MAX_SERIES,
-    PLOT_ERROR_INVALID_VECTOR,
     PLOT_ERROR_SIZE_MISMATCH,
+    PLOT_ERROR_INVALID_VECTOR,
 } PlotError;
 
 #ifndef PLOTTING_C

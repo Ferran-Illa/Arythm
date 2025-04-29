@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
+#include <float.h> // Added for DBL_MAX
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>

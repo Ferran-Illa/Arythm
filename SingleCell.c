@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 
     plot_add_series(&plot, &t, &y, "Alternance", 
         (Color){0, 0, 0, 255}, // Black
-        LINE_SOLID, MARKER_SQUARE, 1, 1, PLOT_LINE);
+        LINE_SOLID, MARKER_NONE, 1, 1, PLOT_LINE);
 
     // Show the plot
     PlotError error = plot_show(&plot);
