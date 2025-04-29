@@ -48,6 +48,32 @@ void help_display() {
     printf("You can customize the solver's behavior using the options above.\n");
 }
 
+int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label) {
+    
+    plot_init(plot); // Initialize the plot
+    // Initialize plot properties
+    strcpy(plot->title, title);
+    strcpy(plot->x_label, x_label);
+    strcpy(plot->y_label, y_label);
+
+    // Add series to the plot
+    plot_add_series(plot, x, y, title,
+        (Color){0, 0, 0, 255}, // Black
+        LINE_SOLID, MARKER_NONE, 1, 1, PLOT_LINE);
+
+    // Show the plot
+    PlotError error = plot_show(plot);
+    if (error != PLOT_SUCCESS) {
+        fprintf(stderr, "Error showing plot: %d\n", error);
+        return -1;
+    }
+
+    // Clean up
+    plot_cleanup(plot);
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     // Example usage of the euler method ODE solver
@@ -68,10 +94,10 @@ int main(int argc, char *argv[])
     int num_steps = 20000;
 
     double initial_t = 0.0;
-    double initial_y[] = {0.2, 0.0, 0.0};
+    double initial_y[] = {0.0, 1.0, 1.0};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
-    double excitation[2] = {2.0, 300}; // Default Periodic excitation parameters [T_exc, T_tot]
+    double excitation[2] = {1.5, 200}; // Default Periodic excitation parameters [T_exc, T_tot]
 
     // Input parsing
     for (int i  = 1; i < argc; i++){
@@ -113,41 +139,11 @@ int main(int argc, char *argv[])
     Vector t = read_matrix_row(&result, 0); // Time data is stored in the first row
     Vector y = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
 
-    const double y_min = array_min(y.data, num_steps);
-    const double y_max = array_max(y.data, num_steps);
-
-    double axes[4] = {0, step_size*num_steps, y_min, y_max}; // x_min, x_max, y_min, y_max
-    double x_tick = num_steps*step_size/10; // Example: 10 divisions
-    double y_tick = (y_max - y_min)/10; // Example: 10 divisions
-
     // Plot the results
-    //print_vector(&t);
-    //print_vector(&y);
+    Plot Alternance;
+    single_plot(&Alternance, &t, &y, "Alternance", "Time (s)", "Voltage (V)");
 
-    //plot_with_sdl(&t, &y, axes, x_tick, y_tick);
-
-    // Initialize plot
-    Plot plot;
-    plot_init(&plot);
-    
-    // Set plot properties
-    strcpy(plot.title, "Alternance");
-    strcpy(plot.x_label, "X-Axis");
-    strcpy(plot.y_label, "Y-Axis");
-
-    plot_add_series(&plot, &t, &y, "Alternance", 
-        (Color){0, 0, 0, 255}, // Black
-        LINE_SOLID, MARKER_NONE, 1, 1, PLOT_LINE);
-
-    // Show the plot
-    PlotError error = plot_show(&plot);
-    if (error != PLOT_SUCCESS) {
-        fprintf(stderr, "Error showing plot: %d\n", error);
-    }
-    
-    // Clean up
-    plot_cleanup(&plot);
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     return 0;
-    // Axes are not well set
+
     }

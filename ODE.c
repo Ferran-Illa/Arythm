@@ -61,7 +61,7 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *excitati
 
     t_diff = t - t_start; // Calculate the time difference since the last excitation
 
-    if(t_diff >= (T_tot - T_exc) && t_diff < T_tot) // T_tot - T_exc makes the excitation activate at the end of the period. This allows initial conditions to evolve.
+    if(t_diff <= T_exc) // T_exc makes the excitation activate at the start of the period.
     { Volt += J_exc; } // If the excitation is active, add the current to the voltage
 
     if(t_diff >= T_tot)
