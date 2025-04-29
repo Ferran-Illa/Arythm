@@ -42,7 +42,7 @@ void help_display() {
     printf("  -exc <op1> <op2>  Specify the initial time value (default: predefined).\n");
     printf("  -h, -help            Display this help message and exit.\n");
     printf("\nExamples (default):\n");
-    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -ode_param 2 100\n");
+    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -exc 2 100\n");
     printf("\nDescription:\n");
     printf("This program solves a system of ordinary differential equations (ODEs) using the Euler method.\n");
     printf("You can customize the solver's behavior using the options above.\n");
@@ -91,13 +91,14 @@ int main(int argc, char *argv[])
     }
 
     double step_size = 0.05; 
-    int num_steps = 20000;
+    int num_steps = 30000;
 
     double initial_t = 0.0;
-    double initial_y[] = {0.0, 1.0, 1.0};
+    double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
-    double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
-    double excitation[2] = {1.5, 200}; // Default Periodic excitation parameters [T_exc, T_tot]
+    //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
+    double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
+    double excitation[2] = {1, 200}; // Default Periodic excitation parameters [T_exc, T_tot]
 
     // Input parsing
     for (int i  = 1; i < argc; i++){
