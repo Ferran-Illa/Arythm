@@ -1,5 +1,6 @@
 #include "include/common.h"
 #include "include/functions.h"
+#include "include/plotting.h"
 #include <math.h>
 
 #ifndef ODE_H
@@ -106,6 +107,7 @@ Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size
     }
     return result;
 }
+
 
 // End of ODE_H guard
 #endif
