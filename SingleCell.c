@@ -64,18 +64,19 @@ Vector find_values(Vector time_t , Vector y_t, int num_steps, double step_size, 
 void help_display() {
     printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
-    printf("  -s <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
-    printf("  -n <num_steps>       Specify the number of steps for the ODE solver (default: 2000).\n");
+    printf("  -stp <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
+    printf("  -nstp <num_steps>       Specify the number of steps for the ODE solver (default: 2000).\n");
+    printf("  -npt <num_points>       Specify the number of points for the bifurcation diagram (default: 100).\n");
     printf("  -t <initial_t>       Specify the initial time value (default: 0.0).\n");
-    printf("  -y <y1> <y2> <y3>    Specify the initial values for the ODE system (default: 0.2, 0.0, 0.0).\n");
+    printf("  -y <V> <v> <w>    Specify the initial values for the ODE system (default: 0.2, 0.0, 0.0).\n");
     printf("  -param <p1> ... <p14> Specify the 14 parameters for the ODE system (default: predefined values).\n");
-    printf("  -exc <op1> <op2>  Specify the initial time value (default: predefined).\n");
+    printf("  -exc <exc_time> <T_tot_min> <T_tot_max>  Specify the excitation  (default: predefined).\n");
     printf("  -h, -help            Display this help message and exit.\n");
     printf("\nExamples (default):\n");
-    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -exc 2 100\n");
+    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -exc 2 70 300\n");
     printf("\nDescription:\n");
     printf("This program solves a system of ordinary differential equations (ODEs) using the Euler method.\n");
-    printf("You can customize the solver's behavior using the options above.\n");
+    printf("You can customise the solver's behaviour using the options above.\n");
 }
 
 int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label) {
@@ -123,20 +124,21 @@ int main(int argc, char *argv[])
     
     double step_size = 0.05; 
     int num_steps = 30000;
+    double num_points = 100; // Number of points for the bifurcation diagram
 
     double initial_t = 0.0;
     double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
     double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
-    double excitation[2]={1, 200}; // Default Periodic excitation parameters [T_exc, T_tot]
+    double excitation[3]={1, 50, 300}; // Default Periodic excitation parameters [T_exc, T_tot_min, T_tot_max]
 
     
     // Input parsing
     for (int i  = 1; i < argc; i++){
-        if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "-stp") == 0 && i + 1 < argc) {
             step_size = atof(argv[++i]);
-        } else if (strcmp(argv[i], "-n") == 0 && i + 1 < argc) {
+        } else if (strcmp(argv[i], "-nstp") == 0 && i + 1 < argc) {
             num_steps = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
             initial_t = atof(argv[++i]);
@@ -148,23 +150,31 @@ int main(int argc, char *argv[])
             for (int j = 0; j < 14; j++) {
                 param[j] = atof(argv[++i]);
             }
-        } else if(strcmp(argv[i], "-exc") == 0 && i + 2 < argc) {
-            for (int j = 0; j < 2; j++) {
+        } else if(strcmp(argv[i], "-exc") == 0 && i + 3 < argc) {
+            for (int j = 0; j < 3; j++) {
                 excitation[j] = atof(argv[++i]);
             }
         } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
             help_display();
             return 0;
-        } else {
+        } else if (strcmp(argv[i], "-npt") == 0 && i + 1 < argc) {
+            num_points = atoi(argv[++i]);
+        }
+
+        else {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             help_display();
             return 1;
         }
     }
 
-    double num_points = 100; // Number of points for the bifurcation diagram
-    double t_tot_min = 80; // Minimum T_tot value
-    double t_tot_max = 300; // Maximum T_tot value
+
+    double t_tot_min = excitation[1];
+    double t_tot_max = excitation[2];
+    double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
+
+    Vector t_exc_values;
+    Vector t_tot_values; 
 
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
@@ -177,14 +187,11 @@ int main(int argc, char *argv[])
         Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
         Vector y_t = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
 
-        Vector find_values 
+        Vector find_values;
         
-
-     
         // Analyze the result to compute T_tot (this is an example, adjust as needed)
-        t_exc_values[i] = excitation[0];
-        t_tot_values[i] = excitation[1]; // Replace with actual computation of T_tot if needed
 
+        free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
         
     }
 
@@ -206,12 +213,12 @@ int main(int argc, char *argv[])
 
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     return 0;
-*/
+    */
 
     // Plot the bifurcation diagram
     Plot bifurcationPlot;
-    single_plot(&bifurcationPlot, t_exc_values, t_tot_values, "Bifurcation Diagram", "T_exc", "T_tot");
-    free_matrix(&times); // Free the result matrix
+    single_plot(&bifurcationPlot, &t_exc_values, &t_tot_values, "Bifurcation Diagram", "T_exc", "T_tot");
+    free_matrix(&result); // Free the result matrix
 
     return 0;
 
