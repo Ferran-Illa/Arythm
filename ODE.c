@@ -34,9 +34,11 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *excitati
     const double T_exc = excitation[0]; //excitation duration
     const double T_tot = excitation[1]; // total period between excitations
 
-    static double t_start = 0; // excitation starting time
+    static double t_start = 0; // Store the initial time
     double t_diff;
 
+    if(t_start > t) // If the time since the last excitation is negative, reset it to 0
+    { t_start = t; }
         
     if(y[0] >= param[11]) // Action of p = 1
     {

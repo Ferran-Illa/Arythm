@@ -24,6 +24,10 @@ double array_min(double *arr, int size) {
     return min;
 }
 
+/* 
+    Cast the matrix row to a vector.
+    Vectors are read linearly which makes casting rows to vectors feasible.
+*/
 Vector read_matrix_row(Matrix *matrix, int row){ // Reads a row of a Matrix as if it was a vector, DOES NOT MAKE A COPY!
     Vector output;
     output.size = matrix->cols;
@@ -31,33 +35,27 @@ Vector read_matrix_row(Matrix *matrix, int row){ // Reads a row of a Matrix as i
     return output;
 }
 
-void plot_bifurcation(double *t_exc_values, double *t_tot_values, int num_points) {
-    Plot plot;
-    Vector t_exc, t_tot;
-
-    // Initialize vectors
-    t_exc.size = num_points;
-    t_tot.size = num_points;
-    t_exc.data = t_exc_values;
-    t_tot.data = t_tot_values;
-
-    // Create the plot
-    single_plot(&plot, &t_exc, &t_tot, "Bifurcation Diagram", "T_exc", "T_tot");
-}
-
-Vector find_values(Vector time_t , Vector y_t, int num_steps, double step_size, double t_tot_min) {
-    Vector ans= create_vector((int)(2*num_steps*step_size/t_tot_min));
+// It first finds an upwards crossing point (y>threshold) and then a downwards crossing point (y<threshold) to find the APD and DP values.
+Vector find_values(const Vector time_t , const Vector y_t, int num_excitations, int num_steps, double threshold) {
+    Vector ans= create_vector(2*num_excitations);
     bool STATE=1;
+    int j = 0;
     for (int i = 0; i < num_steps; i++) {
-        if (VEC(y_t, i) > 0.13 && STATE) {
-            VEC(ans, i) = VEC(time_t, i);
+        if (VEC(y_t, i) > threshold && STATE) {
+            VEC(ans, j) = VEC(time_t, i);
             STATE=!STATE;
+            j++;
         }
-        if (VEC(y_t, i) < 0.13 && STATE ) {
-            VEC(ans, i) = VEC(time_t, i);
-            STATE=!STATE;
+        if (VEC(y_t, i) < threshold && !STATE ) {
+            VEC(ans, j) = VEC(time_t, i);
+            STATE=!STATE;+
+            j++;
+        }
+        if (j >= 2*num_excitations) {
+            break; // Stop if we have found enough crossing points
         }
     }
+    ans.size = j; // Update the size of the vector to the number of crossing points found
     return ans;
 }
 
@@ -79,7 +77,7 @@ void help_display() {
     printf("You can customise the solver's behaviour using the options above.\n");
 }
 
-int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label) {
+int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label, PlotType plot_type) {
     
     plot_init(plot); // Initialize the plot
     // Initialize plot properties
@@ -90,7 +88,7 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
     // Add series to the plot
     plot_add_series(plot, x, y, title,
         (Color){0, 0, 0, 255}, // Black
-        LINE_SOLID, MARKER_NONE, 1, 1, PLOT_LINE);
+        LINE_SOLID, MARKER_NONE, 1, 2, plot_type);
 
     // Show the plot
     PlotError error = plot_show(plot);
@@ -105,23 +103,75 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
     return 0;
 }
 
+
+void bifurcation_diagram(double *excitation, int num_points, double step_size, int num_steps, double initial_t, double *initial_y, double *param) {
+    double t_tot_min = excitation[1];
+    double t_tot_max = excitation[2];
+    double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
+
+    int num_excitations = 17; // Number of excitations to consider for each T_exc.
+    Vector APD = create_vector(num_excitations*num_points); // Create a vector to store the APD values.
+    Vector DP = create_vector(num_excitations*num_points); // Create a vector to store the DP values.
+
+    static int total_excitations = 0; // Total number of excitations found so far
+    // Loop over T_exc values
+    for (int i = 0; i < num_points; i++) {
+        excitation[1] = t_tot_min + i * (t_tot_max - t_tot_min) / (num_points - 1); // T_exc
+
+        num_steps = (int)(num_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+
+        // Solve the ODE system
+        Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+
+        Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
+        Vector y_t = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
+
+        Vector cross_points = find_values(t_t, y_t, num_excitations, num_steps, param[11]); // Find the crossing points for the first 10 pulses
+           
+        /* 
+         * Ignore the first 15 pulses (allow for stabilization) (starting at a Dp phase), due to the design of find_values(),
+         * the even indices of cross_points indicate the start of the APD phase (and end of the DP phase),
+         * the odd ones mark its end and the start of the DP phase.
+        */ 
+        int index = 15*2-1; // Ignore the first 15 pulses (starting at a DP phase)
+        int found_excitations = cross_points.size/2 - 15; // Number of useful excitations found (integer division!)
+        
+
+        for (int j = 0; j < found_excitations; j++) {
+            
+            if(index+2 >= cross_points.size) {
+                break; // Avoid out of bounds access
+            }
+
+            DP.data[j + total_excitations] = VEC(cross_points, index + 1) - VEC(cross_points, index); // Calculate PD
+            APD.data[j + total_excitations] = VEC(cross_points, index + 2) - VEC(cross_points, index + 1); // Calculate APD
+
+            index += 2; // Move to the next pair of crossing points
+        }
+        total_excitations += found_excitations; // Update the total number of excitations found
+        //printf("Found %d stabilized excitations for T_exc = %.2f\n", found_excitations, excitation[1]);
+
+        // This should not be an S1-S2 method, although the ODE starts again at the end of the last pulse train.
+        // An S1-S2 method would not need the waiting time for pulse stabilization.
+        //initial_y[0] = MAT(result_t, 0, num_steps-1); // Update the initial voltage for the next iteration
+        //initial_y[1] = MAT(result_t, 1, num_steps-1); // Update the initial fast-gate for the next iteration
+        //initial_y[2] = MAT(result_t, 2, num_steps-1); // Update the initial slow-gate for the next iteration
+
+            // Plot the results
+        //Plot Alternance;
+        //single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+
+        free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
+    }
+    DP.size = total_excitations; // Update the size of the vector to the number of crossing points found
+    APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
+    
+    Plot bifurcationPlot;
+    single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
+}
 int main(int argc, char *argv[])
 {
-    // Example usage of the euler method ODE solver
-
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
-        return 1;
-    }
-
-    if (TTF_Init() == -1) {
-        fprintf(stderr, "TTF_Init Error: %s\n", TTF_GetError());
-        SDL_Quit();
-        return 1;
-    }
-
-    
+ 
     double step_size = 0.05; 
     int num_steps = 30000;
     double num_points = 100; // Number of points for the bifurcation diagram
@@ -131,7 +181,7 @@ int main(int argc, char *argv[])
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
     double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
-    double excitation[3]={1, 50, 300}; // Default Periodic excitation parameters [T_exc, T_tot_min, T_tot_max]
+    double excitation[3]={1, 300, 400}; // Default Periodic excitation parameters [T_exc, T_tot_min, T_tot_max]
 
     
     // Input parsing
@@ -168,40 +218,9 @@ int main(int argc, char *argv[])
         }
     }
 
-
-    double t_tot_min = excitation[1];
-    double t_tot_max = excitation[2];
-    double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
-
-    Vector t_exc_values;
-    Vector t_tot_values; 
-
-    // Loop over T_exc values
-    for (int i = 0; i < num_points; i++) {
-        excitation[1] = t_tot_min + i * (t_tot_max - t_tot_min) / (num_points - 1); // T_exc
-        excitation[0] = 1.5; // Set a fixed T_exc for now
-
-        // Solve the ODE system
-        Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
-
-        Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
-        Vector y_t = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
-
-        Vector find_values;
-        
-        // Analyze the result to compute T_tot (this is an example, adjust as needed)
-
-        free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
-        
-    }
-
-    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+    bifurcation_diagram(excitation, num_points, step_size, num_steps, initial_t, initial_y, param); // Call the bifurcation diagram function
+    //Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
     //print_matrix(&result); // Print the matrix for debugging
-    /* 
-        Cast the first row (time) to t and the second row (ode values) to y, 
-        vectors are read linearly which makes casting rows to vectors feasible.
-        Temporary solution until a proper vectorization is implemented.  
-    */
 
     /*
     Vector t = read_matrix_row(&result, 0); // Time data is stored in the first row
@@ -209,16 +228,15 @@ int main(int argc, char *argv[])
 
     // Plot the results
     Plot Alternance;
-    single_plot(&Alternance, &t, &y, "Alternance", "Time (s)", "Voltage (V)");
+    single_plot(&Alternance, &t, &y, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     return 0;
     */
 
     // Plot the bifurcation diagram
-    Plot bifurcationPlot;
-    single_plot(&bifurcationPlot, &t_exc_values, &t_tot_values, "Bifurcation Diagram", "T_exc", "T_tot");
-    free_matrix(&result); // Free the result matrix
+    
+    //free_matrix(&result); // Free the result matrix
 
     return 0;
 
