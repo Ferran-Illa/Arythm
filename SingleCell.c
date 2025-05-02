@@ -63,15 +63,17 @@ void help_display() {
     printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
     printf("  -stp <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
-    printf("  -nstp <num_steps>       Specify the number of steps for the ODE solver (default: 2000).\n");
-    printf("  -npt <num_points>       Specify the number of points for the bifurcation diagram (default: 100).\n");
-    printf("  -t <initial_t>       Specify the initial time value (default: 0.0).\n");
-    printf("  -y <V> <v> <w>    Specify the initial values for the ODE system (default: 0.2, 0.0, 0.0).\n");
-    printf("  -param <p1> ... <p14> Specify the 14 parameters for the ODE system (default: predefined values).\n");
-    printf("  -exc <exc_time> <T_tot_min> <T_tot_max>  Specify the excitation  (default: predefined).\n");
-    printf("  -h, -help            Display this help message and exit.\n");
+    printf("  -nstp <num_steps>      Specify the number of steps for the ODE solver (default: 30000).\n");
+    printf("  -npt <num_points>      Specify the number of points for the bifurcation diagram (default: 100).\n");
+    printf("  -t <initial_t>         Specify the initial time value (default: 0.0).\n");
+    printf("  -y <V> <v> <w>         Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
+    printf("  -param <p1> ... <p14>  Specify the 14 parameters for the ODE system (default: predefined values).\n");
+    printf("  -exc <exc_time> <T_tot> Specify the excitation parameters (default: 1, 300).\n");
+    printf("  -h, -help              Display this help message and exit.\n");
+    printf("  -bif                   Plot the bifurcation diagram.\n");
+    printf("  -bif_set <T_exc> <T_tot_min> <T_tot_max> Specify bifurcation parameters (default: 1, 300, 400).\n");
     printf("\nExamples (default):\n");
-    printf("  ./SingleCell.sh -s 0.05 -n 20000 -t 0.0 -y 0.2 0.0 0.0 -param 3.33 9 8 250 60 0.395 9 33.33 29 15 0.5 0.13 0.04 .1  -exc 2 70 300\n");
+    printf("  ./SingleCell.sh -stp 0.05 -nstp 30000 -t 0.0 -y 0.0 0.9 0.9 -param 3.33 15.6 5 350 80 0.407 9 34 26.5 15 0.45 0.15 0.04 1 -exc 1 300 400 -bif\n");
     printf("\nDescription:\n");
     printf("This program solves a system of ordinary differential equations (ODEs) using the Euler method.\n");
     printf("You can customise the solver's behaviour using the options above.\n");
@@ -169,22 +171,25 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, i
     Plot bifurcationPlot;
     single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
 }
+
 int main(int argc, char *argv[])
 {
  
     double step_size = 0.05; 
     int num_steps = 30000;
     double num_points = 100; // Number of points for the bifurcation diagram
+    bool plot_bifurcation_diagram = 0; // Flag to indicate bifurcation diagram plotting
 
     double initial_t = 0.0;
     double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
     double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
-    double excitation[3]={1, 300, 400}; // Default Periodic excitation parameters [T_exc, T_tot_min, T_tot_max]
-
+    double excitation[3]={1, 300}; // Default Periodic excitation parameters [T_exc, T_tot]
+    double bifurcation[3] = {1, 300, 400}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
     
     // Input parsing
+
     for (int i  = 1; i < argc; i++){
         if (strcmp(argv[i], "-stp") == 0 && i + 1 < argc) {
             step_size = atof(argv[++i]);
@@ -200,8 +205,8 @@ int main(int argc, char *argv[])
             for (int j = 0; j < 14; j++) {
                 param[j] = atof(argv[++i]);
             }
-        } else if(strcmp(argv[i], "-exc") == 0 && i + 3 < argc) {
-            for (int j = 0; j < 3; j++) {
+        } else if(strcmp(argv[i], "-exc") == 0 && i + 2 < argc) {
+            for (int j = 0; j < 2; j++) {
                 excitation[j] = atof(argv[++i]);
             }
         } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
@@ -209,6 +214,12 @@ int main(int argc, char *argv[])
             return 0;
         } else if (strcmp(argv[i], "-npt") == 0 && i + 1 < argc) {
             num_points = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "-bif") == 0) {
+            plot_bifurcation_diagram = 1; // Set a flag to indicate bifurcation diagram plotting
+        } else if (strcmp(argv[i], "-bif_set") == 0 && i + 3 < argc) {
+            for (int j = 0; j < 3; j++) {
+                bifurcation[j] = atof(argv[++i]);
+            }
         }
 
         else {
@@ -217,25 +228,25 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
+    
+    // Plot the results
 
-    bifurcation_diagram(excitation, num_points, step_size, num_steps, initial_t, initial_y, param); // Call the bifurcation diagram function
-    //Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+
     //print_matrix(&result); // Print the matrix for debugging
 
-    /*
     Vector t = read_matrix_row(&result, 0); // Time data is stored in the first row
     Vector y = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
 
-    // Plot the results
     Plot Alternance;
     single_plot(&Alternance, &t, &y, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
-    return 0;
-    */
 
     // Plot the bifurcation diagram
-    
+    if(plot_bifurcation_diagram) {
+        bifurcation_diagram(bifurcation, num_points, step_size, num_steps, initial_t, initial_y, param); // Call the bifurcation diagram function
+    }
     //free_matrix(&result); // Free the result matrix
 
     return 0;
