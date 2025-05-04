@@ -4,7 +4,7 @@
 
 // ----------------------------- MAIN -----------------------------
 
-double array_max(double *arr, int size) {
+double array_max(double *arr, int size) { // Maybe move to algebra.c??
     double max = arr[0];
     for (int i = 1; i < size; i++) {
         if (arr[i] > max) {
@@ -111,11 +111,11 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, i
     double t_tot_max = excitation[2];
     double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
 
-    int num_excitations = 17; // Number of excitations to consider for each T_exc.
+    int num_excitations = 20; // Number of excitations to consider for each T_exc.
     Vector APD = create_vector(num_excitations*num_points); // Create a vector to store the APD values.
     Vector DP = create_vector(num_excitations*num_points); // Create a vector to store the DP values.
 
-    static int total_excitations = 0; // Total number of excitations found so far
+    int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
         excitation[1] = t_tot_min + i * (t_tot_max - t_tot_min) / (num_points - 1); // T_exc
@@ -147,7 +147,6 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, i
 
             DP.data[j + total_excitations] = VEC(cross_points, index + 1) - VEC(cross_points, index); // Calculate PD
             APD.data[j + total_excitations] = VEC(cross_points, index + 2) - VEC(cross_points, index + 1); // Calculate APD
-
             index += 2; // Move to the next pair of crossing points
         }
         total_excitations += found_excitations; // Update the total number of excitations found

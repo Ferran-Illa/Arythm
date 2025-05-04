@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/${fileBasenameNoExtension}.sh",
-            "args": [], //["-param", "3.33", "9", "8", "250", "60", ".395", "9", "33.33", "29", "15", ".5", ".13", ".04", ".2", "1.0", "300"],
+            "args": ["-bif", "-bif_set", "1", "170", "320"], //["-param", "3.33", "9", "8", "250", "60", ".395", "9", "33.33", "29", "15", ".5", ".13", ".04", ".2", "1.0", "300"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
