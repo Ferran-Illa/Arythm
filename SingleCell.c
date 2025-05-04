@@ -106,7 +106,7 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
 }
 
 
-void bifurcation_diagram(double *excitation, int num_points, double step_size, int num_steps, double initial_t, double *initial_y, double *param) {
+void bifurcation_diagram(double *excitation, int num_points, double step_size, double initial_t, double *initial_y, double *param) {
     double t_tot_min = excitation[1];
     double t_tot_max = excitation[2];
     double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
@@ -117,10 +117,27 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, i
     Vector APD = create_vector(num_points); // Create a vector to store the APD values.
     Vector DP = create_vector(num_points); // Create a vector to store the DP values.
 
+    //setting time to stabilize (skipping excitations)
+    int num_steps = (int)(skip_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+
+    Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+
     int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
         excitation[1] = t_tot_min + i * t_tot_step; // T_exc
+
+        initial_y[0] = MAT(result_t, 1, num_steps-1); // Update the initial voltage for the next iteration
+        initial_y[1] = MAT(result_t, 2, num_steps-1); // Update the initial fast-gate for the next iteration
+        initial_y[2] = MAT(result_t, 3, num_steps-1); // Update the initial slow-gate for the next iteration
+
+        initial_t = MAT(result_t, 0, num_steps-1); // Update the initial voltage for the next iteration
+        
+    
+        if (initial_y[0]>param[11] ) {
+            printf("WARNING: Initial voltage is above threshold.\n");
+            
+        }
 
         num_steps = (int)(num_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
@@ -133,36 +150,29 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, i
         Vector cross_points = find_values(t_t, y_t, num_excitations, num_steps, param[11]); // Find the crossing points for the first 10 pulses
            
         /* 
-         * Ignore the first 15 pulses (allow for stabilization) (starting at a Dp phase), due to the design of find_values(),
+         * Ignore the first pulse (allow for stabilization) (starting at a Dp phase), due to the design of find_values(),
          * the even indices of cross_points indicate the start of the APD phase (and end of the DP phase),
          * the odd ones mark its end and the start of the DP phase.
         */ 
-        int index = 15*2-1; // Ignore the first 15 pulses (starting at a DP phase)
-        int found_excitations = cross_points.size/2 - 15; // Number of useful excitations found (integer division!)
+        int index = 1; // Ignore the first pulse (starting at a DP phase)
+        int found_excitations = cross_points.size/2 - 1; // Number of useful excitations found (integer division!)
         
 
-        for (int j = 0; j < found_excitations; j++) {
-            
-            if(index+2 >= cross_points.size) {
-                break; // Avoid out of bounds access
-            }
-
-            DP.data[j + total_excitations] = VEC(cross_points, index + 1) - VEC(cross_points, index); // Calculate PD
-            APD.data[j + total_excitations] = VEC(cross_points, index + 2) - VEC(cross_points, index + 1); // Calculate APD
-            index += 2; // Move to the next pair of crossing points
-        }
-        total_excitations += found_excitations; // Update the total number of excitations found
+        // we're only considering the second excitation out of the 5 pulses        
+        if(index+2 <= cross_points.size) {
+                 
+        DP.data[total_excitations] = VEC(cross_points, index + 1) - VEC(cross_points, index); // Calculate PD
+        APD.data[ total_excitations] = VEC(cross_points, index + 2) - VEC(cross_points, index + 1); // Calculate APD
+        
+    
+        total_excitations += 1; // Update the total number of excitations found
         //printf("Found %d stabilized excitations for T_exc = %.2f\n", found_excitations, excitation[1]);
-
-        // This should not be an S1-S2 method, although the ODE starts again at the end of the last pulse train.
-        // An S1-S2 method would not need the waiting time for pulse stabilization.
-        //initial_y[0] = MAT(result_t, 0, num_steps-1); // Update the initial voltage for the next iteration
-        //initial_y[1] = MAT(result_t, 1, num_steps-1); // Update the initial fast-gate for the next iteration
-        //initial_y[2] = MAT(result_t, 2, num_steps-1); // Update the initial slow-gate for the next iteration
-
-            // Plot the results
-        //Plot Alternance;
-        //single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+        }
+        
+         
+        // Plot the results
+        Plot Alternance;
+        single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
         free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
     }
@@ -246,7 +256,7 @@ int main(int argc, char *argv[])
 
     // Plot the bifurcation diagram
     if(plot_bifurcation_diagram) {
-        bifurcation_diagram(bifurcation, num_points, step_size, num_steps, initial_t, initial_y, param); // Call the bifurcation diagram function
+        bifurcation_diagram(bifurcation, num_points, step_size, initial_t, initial_y, param); // Call the bifurcation diagram function
     }
     //free_matrix(&result); // Free the result matrix
 
