@@ -111,14 +111,16 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, i
     double t_tot_max = excitation[2];
     double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
 
-    int num_excitations = 20; // Number of excitations to consider for each T_exc.
-    Vector APD = create_vector(num_excitations*num_points); // Create a vector to store the APD values.
-    Vector DP = create_vector(num_excitations*num_points); // Create a vector to store the DP values.
+    int skip_excitations = 20; // Number of excitations to skip at start of T_exc.
+    int num_excitations = 5; // Number of excitations to consider for each T_exc.
+
+    Vector APD = create_vector(num_points); // Create a vector to store the APD values.
+    Vector DP = create_vector(num_points); // Create a vector to store the DP values.
 
     int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
-        excitation[1] = t_tot_min + i * (t_tot_max - t_tot_min) / (num_points - 1); // T_exc
+        excitation[1] = t_tot_min + i * t_tot_step; // T_exc
 
         num_steps = (int)(num_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
@@ -182,8 +184,8 @@ int main(int argc, char *argv[])
     double initial_t = 0.0;
     double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
-    double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
-    //double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
+    //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
+    double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
     double excitation[3]={1, 300}; // Default Periodic excitation parameters [T_exc, T_tot]
     double bifurcation[3] = {1, 300, 400}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
     
