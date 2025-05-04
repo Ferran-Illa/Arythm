@@ -121,7 +121,7 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
     int num_steps = (int)(skip_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
     Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
-
+   
     int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
@@ -132,8 +132,17 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         initial_y[2] = MAT(result_t, 3, num_steps-1); // Update the initial slow-gate for the next iteration
 
         initial_t = MAT(result_t, 0, num_steps-1); // Update the initial voltage for the next iteration
-        
-    
+
+        if (result_t.rows !=4) {
+            printf("ERROR: The result matrix does not have the expected number of rows.\n");
+        }
+
+        if (result_t.cols != num_steps) {
+            printf( "%.5d\n",num_steps);
+            printf("%.5d\n",result_t.cols);
+            printf("ERROR: The result matrix does not have the expected number of columns.\n");
+        }
+     
         if (initial_y[0]>param[11] ) {
             printf("WARNING: Initial voltage is above threshold.\n");
             
@@ -142,6 +151,7 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         num_steps = (int)(num_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
         // Solve the ODE system
+        
         Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
 
         Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
@@ -171,8 +181,8 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         
          
         // Plot the results
-        Plot Alternance;
-        single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+        // Plot Alternance;
+        // single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
         free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
     }

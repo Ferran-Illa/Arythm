@@ -21,7 +21,7 @@
 
     #ifndef ODE_H
         extern void ODE_func(double t, double *y, double *dydt, double *param, double *ode_param);
-        extern Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *ode_param);    
+        extern Matrix  euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *ode_param);    
     #endif // ODE_H 
 
 #endif // FUNCTIONS_H
