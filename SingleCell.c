@@ -152,7 +152,7 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
 
         // Solve the ODE system
         
-        Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+        result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
 
         Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
         Vector y_t = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
@@ -184,8 +184,11 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         // Plot Alternance;
         // single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
-        free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
+        
     }
+
+    free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
+
     DP.size = total_excitations; // Update the size of the vector to the number of crossing points found
     APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
     
