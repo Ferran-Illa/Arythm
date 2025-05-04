@@ -118,10 +118,10 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
     Vector DP = create_vector(num_points); // Create a vector to store the DP values.
 
     //setting time to stabilize (skipping excitations)
-    int num_steps = (int)(skip_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+    int num_steps = (int)(skip_excitations*excitation[1] / step_size); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
     Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
-   
+
     int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
@@ -142,13 +142,8 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
             printf("%.5d\n",result_t.cols);
             printf("ERROR: The result matrix does not have the expected number of columns.\n");
         }
-     
-        if (initial_y[0]>param[11] ) {
-            printf("WARNING: Initial voltage is above threshold.\n");
-            
-        }
 
-        num_steps = (int)(num_excitations*excitation[1] / step_size -1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+        num_steps = (int)(num_excitations*excitation[1] / step_size); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
         // Solve the ODE system
         
@@ -181,8 +176,8 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         
          
         // Plot the results
-        // Plot Alternance;
-        // single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+        //Plot Alternance;
+        //single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
         
     }
@@ -191,7 +186,9 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
 
     DP.size = total_excitations; // Update the size of the vector to the number of crossing points found
     APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
-    
+    //print_vector(&DP); // Print the DP values
+    //print_vector(&APD); // Print the APD values
+
     Plot bifurcationPlot;
     single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
 }
@@ -208,7 +205,10 @@ int main(int argc, char *argv[])
     double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
-    double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
+    //double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
+    //double param[14] = {3.33, 19.6, 1250, 870, 41, .25, 12.5, 33.33, 29, 10, .85, .13, .04, 1}; // Example parameters set 3
+    //double param[14] = {10, 40, 333, 1000, 65, .115, 12.5, 25, 22.22, 10, .85, .13, .025, 1}; // Example parameters set 10
+    double param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, .85, .13, .055, 1}; // Example parameters set 1
     double excitation[3]={1, 300}; // Default Periodic excitation parameters [T_exc, T_tot]
     double bifurcation[3] = {1, 300, 400}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
     
