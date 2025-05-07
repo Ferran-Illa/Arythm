@@ -37,8 +37,8 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *excitati
     static double t_start = 0; // Store the initial time
     double t_diff;
 
-    if(t_start > t) // If the time since the last excitation is negative, reset it to 0
-    { t_start = t; }
+    if(t_start < 0) // If the time since the last excitation is negative, reset it to 0
+    { t_start = 0; }
         
     if(y[0] >= param[11]) // Action of p = 1
     {

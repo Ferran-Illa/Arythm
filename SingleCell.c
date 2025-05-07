@@ -118,10 +118,17 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
     Vector DP = create_vector(num_points); // Create a vector to store the DP values.
 
     //setting time to stabilize (skipping excitations)
-    int num_steps = (int)(skip_excitations*excitation[1] / step_size); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+    int num_steps = (int)(skip_excitations*t_tot_min / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
     Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+    /*
+    // Debugging
+    Vector t_t0 = read_matrix_row(&result_t, 0); // Time data is stored in the first row
+    Vector y_t0 = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
 
+    Plot Alternance0;
+    single_plot(&Alternance0, &t_t0, &y_t0, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+    */
     int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
@@ -131,19 +138,23 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         initial_y[1] = MAT(result_t, 2, num_steps-1); // Update the initial fast-gate for the next iteration
         initial_y[2] = MAT(result_t, 3, num_steps-1); // Update the initial slow-gate for the next iteration
 
+        double expected_t = initial_t + step_size * (num_steps - 1); // Expected time after num_steps
         initial_t = MAT(result_t, 0, num_steps-1); // Update the initial voltage for the next iteration
 
+        if (initial_t - expected_t > 0.00001 || initial_t - expected_t < -0.00001) {
+            printf("ERROR: The initial time does not match the expected value.\n");
+        }
         if (result_t.rows !=4) {
             printf("ERROR: The result matrix does not have the expected number of rows.\n");
         }
 
         if (result_t.cols != num_steps) {
-            printf( "%.5d\n",num_steps);
-            printf("%.5d\n",result_t.cols);
+            printf( "Steps considered: %.5d\n",num_steps);
+            printf(" Number of columns: %.5d\n",result_t.cols);
             printf("ERROR: The result matrix does not have the expected number of columns.\n");
         }
 
-        num_steps = (int)(num_excitations*excitation[1] / step_size); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+        num_steps = (int)(num_excitations*excitation[1] / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
 
         // Solve the ODE system
         
@@ -175,9 +186,9 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         }
         
          
-        // Plot the results
-        //Plot Alternance;
-        //single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+        // Plot the results (debugging)
+        // Plot Alternance;
+        // single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
         
     }
@@ -204,13 +215,13 @@ int main(int argc, char *argv[])
     double initial_t = 0.0;
     double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
-    //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, 1}; // Example parameters set 6
-    //double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, 1}; // Example parameters set 4
-    //double param[14] = {3.33, 19.6, 1250, 870, 41, .25, 12.5, 33.33, 29, 10, .85, .13, .04, 1}; // Example parameters set 3
-    //double param[14] = {10, 40, 333, 1000, 65, .115, 12.5, 25, 22.22, 10, .85, .13, .025, 1}; // Example parameters set 10
-    double param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, .85, .13, .055, 1}; // Example parameters set 1
-    double excitation[3]={1, 300}; // Default Periodic excitation parameters [T_exc, T_tot]
-    double bifurcation[3] = {1, 300, 400}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
+    //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .1}; // Example parameters set 6
+    //double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, .1}; // Example parameters set 4
+    //double param[14] = {3.33, 19.6, 1250, 870, 41, .25, 12.5, 33.33, 29, 10, .85, .13, .04, .1}; // Example parameters set 3
+    //double param[14] = {10, 40, 333, 1000, 65, .115, 12.5, 25, 22.22, 10, .85, .13, .025, .1}; // Example parameters set 10
+    double param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, .85, .13, .055, .1}; // Example parameters set 1
+    double excitation[3]={2, 500}; // Default Periodic excitation parameters [T_exc, T_tot]
+    double bifurcation[3] = {2, 400, 500}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
     
     // Input parsing
 
