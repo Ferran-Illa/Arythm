@@ -3,27 +3,6 @@
 #include "include/plotting.h"
 
 // ----------------------------- MAIN -----------------------------
-
-double array_max(double *arr, int size) { // Maybe move to algebra.c??
-    double max = arr[0];
-    for (int i = 1; i < size; i++) {
-        if (arr[i] > max) {
-            max = arr[i];
-        }
-    }
-    return max;
-}
-
-double array_min(double *arr, int size) {
-    double min = arr[0];
-    for (int i = 1; i < size; i++) {
-        if (arr[i] < min) {
-            min = arr[i];
-        }
-    }
-    return min;
-}
-
 /* 
     Cast the matrix row to a vector.
     Vectors are read linearly which makes casting rows to vectors feasible.
@@ -106,9 +85,14 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
 }
 
 
-void bifurcation_diagram(double *excitation, int num_points, double step_size, double initial_t, double *initial_y, double *param) {
-    double t_tot_min = excitation[1];
-    double t_tot_max = excitation[2];
+void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParams ode_input) {
+
+    // Extract parameters from the input structure. Beware that ode_input is not changed!
+    int     nstp         = ode_input.num_steps;
+    double  step_size    = ode_input.step_size;
+    
+    double t_tot_min = bifurcation[1];
+    double t_tot_max = bifurcation[2];
     double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
 
     int skip_excitations = 20; // Number of excitations to skip at start of T_exc.
@@ -118,52 +102,49 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
     Vector DP = create_vector(2*num_points); // Create a vector to store the DP values.
 
     //setting time to stabilize (skipping excitations)
-    int num_steps = (int)(skip_excitations*t_tot_max / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 j.
-    excitation[1] = t_tot_max; // T_exc
-    Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
-    /*
-    // Debugging
-    Vector t_t0 = read_matrix_row(&result_t, 0); // Time data is stored in the first row
-    Vector y_t0 = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
+    ode_input.num_steps = (int)(skip_excitations*t_tot_max / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 j.
+    ode_input.excitation[0] = bifurcation[0]; // J_exc
+    ode_input.excitation[1] = t_tot_max; // T_exc
 
-    Plot Alternance0;
-    single_plot(&Alternance0, &t_t0, &y_t0, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
-    */
+    Matrix result_t = euler_integration_multidimensional(ODE_func, ode_input);
+
     int total_excitations = 0; // Total number of excitations found so far
+
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
-        excitation[1] = t_tot_max - i * t_tot_step; // T_exc
+        nstp = ode_input.num_steps; // Update num_steps for each iteration
+        ode_input.excitation[1] = t_tot_max - i * t_tot_step; // T_exc
 
-        initial_y[0] = MAT(result_t, 1, num_steps-1); // Update the initial voltage for the next iteration
-        initial_y[1] = MAT(result_t, 2, num_steps-1); // Update the initial fast-gate for the next iteration
-        initial_y[2] = MAT(result_t, 3, num_steps-1); // Update the initial slow-gate for the next iteration
+        ode_input.initial_y[0] = MAT(result_t, 1, nstp-1); // Update the initial voltage for the next iteration
+        ode_input.initial_y[1] = MAT(result_t, 2, nstp-1); // Update the initial fast-gate for the next iteration
+        ode_input.initial_y[2] = MAT(result_t, 3, nstp-1); // Update the initial slow-gate for the next iteration
 
-        double expected_t = initial_t + step_size * (num_steps - 1); // Expected time after num_steps
-        initial_t = MAT(result_t, 0, num_steps-1); // Update the initial voltage for the next iteration
+        double expected_t = ode_input.initial_t + step_size * (nstp - 1); // Expected time after nstp steps
+        ode_input.initial_t = MAT(result_t, 0, nstp-1); // Update the initial voltage for the next iteration
 
-        if (initial_t - expected_t > 0.00001 || initial_t - expected_t < -0.00001) {
+        if (ode_input.initial_t - expected_t > 0.00001 || ode_input.initial_t - expected_t < -0.00001) {
             printf("ERROR: The initial time does not match the expected value.\n");
         }
         if (result_t.rows !=4) {
             printf("ERROR: The result matrix does not have the expected number of rows.\n");
         }
 
-        if (result_t.cols != num_steps) {
-            printf( "Steps considered: %.5d\n",num_steps);
+        if (result_t.cols != nstp) {
+            printf( "Steps considered: %.5d\n",nstp);
             printf(" Number of columns: %.5d\n",result_t.cols);
             printf("ERROR: The result matrix does not have the expected number of columns.\n");
         }
 
-        num_steps = (int)(num_excitations*excitation[1] / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 j.
+        ode_input.num_steps = (int)(num_excitations * ode_input.excitation[1] / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 j.
 
         // Solve the ODE system
         
-        result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
+        result_t = euler_integration_multidimensional(ODE_func, ode_input);
 
         Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
         Vector y_t = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
 
-        Vector cross_points = find_values(t_t, y_t, num_excitations, num_steps, step_size, param[11]); // Find the crossing points for the first 10 j
+        Vector cross_points = find_values(t_t, y_t, num_excitations, nstp, step_size, ode_input.param[11]); // Find the crossing points for the first 10 j
            
         /* 
          * Ignore the first pulse (allow for stabilization) (starting at a Dp phase), due to the design of find_values(),
@@ -174,12 +155,12 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
             
         for(int j = 0; j < 4; j+=2){ // number of crossings (pulses*2) to consider
             if(index + j + 2 <= cross_points.size) {        
-                DP.data[total_excitations] = excitation[1]; // Calculate PD
+                DP.data[total_excitations] = ode_input.excitation[1]; // Calculate PD
                 APD.data[ total_excitations] = VEC(cross_points, index + j+2) - VEC(cross_points, index + j+1); // Calculate APD
 
                 total_excitations += 1; // Update the total number of excitations found
             }
-            //printf("Found %d stabilized excitations for T_exc = %.2f\n", found_excitations, excitation[1]);
+
         }
         // Plot the results (debugging)
         // Plot Alternance;
@@ -190,90 +171,125 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
 
     DP.size = total_excitations; // Update the size of the vector to the number of crossing points found
     APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
-    //print_vector(&DP); // Print the DP values
-    //print_vector(&APD); // Print the APD values
 
     Plot bifurcationPlot;
     single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
 }
 
-int main(int argc, char *argv[])
-{
- 
-    double step_size = 0.05; 
-    int num_steps = 30000;
-    double num_points = 100; // Number of points for the bifurcation diagram
-    bool plot_bifurcation_diagram = 0; // Flag to indicate bifurcation diagram plotting
+void parse_input(int argc, char *argv[], InputParams *input) {
+    // Default values
+    input -> step_size = 0.05;
+    input -> num_steps = 30000;
+    input -> num_points = 100;
+    input -> plot_bifurcation_diagram = false;
+    input -> initial_t = 0.0;
 
-    double initial_t = 0.0;
-    double initial_y[] = {0.0, .9, .9};
-        // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
-    //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .1}; // Example parameters set 6
-    double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, .1}; // Example parameters set 4
-    //double param[14] = {3.33, 19.6, 1250, 870, 41, .25, 12.5, 33.33, 29, 10, .85, .13, .04, .1}; // Example parameters set 3
-    //double param[14] = {10, 40, 333, 1000, 65, .115, 12.5, 25, 22.22, 10, .85, .13, .025, .1}; // Example parameters set 10
-    //double param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, .85, .13, .055, .1}; // Example parameters set 1
-    double excitation[3]={2.5, 250}; // Default Periodic excitation parameters [T_exc, T_tot]
-    double bifurcation[3] = {2.55, 120, 350}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
-    
-    // Input parsing
+    input -> initial_y[0] = 0.0;
+    input -> initial_y[1] = 0.9;
+    input -> initial_y[2] = 0.9;
 
-    for (int i  = 1; i < argc; i++){
+    // Default parameters
+    double default_param[14] = {3.33, 15.6, 5, 350, 80, 0.407, 9, 34, 26.5, 15, 0.45, 0.15, 0.04, 0.1};
+    memcpy(input->param, default_param, sizeof(default_param));
+
+    // Default excitation and bifurcation parameters
+    input -> excitation[0] = 2.5;
+    input -> excitation[1] = 250;
+    input -> excitation[2] = 400;
+
+    input -> bifurcation[0] = 2.55;
+    input -> bifurcation[1] = 120;
+    input -> bifurcation[2] = 350;
+
+    // Parse command-line arguments
+    for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-stp") == 0 && i + 1 < argc) {
-            step_size = atof(argv[++i]);
-        } else if (strcmp(argv[i], "-nstp") == 0 && i + 1 < argc) {
-            num_steps = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
-            initial_t = atof(argv[++i]);
-        } else if (strcmp(argv[i], "-y") == 0 && i + 3 < argc) {
-            for (int j = 0; j < 3; j++) {
-                initial_y[j] = atof(argv[++i]);
-            }
-        } else if (strcmp(argv[i], "-param") == 0 && i + 14 < argc) {
-            for (int j = 0; j < 14; j++) {
-                param[j] = atof(argv[++i]);
-            }
-        } else if(strcmp(argv[i], "-exc") == 0 && i + 2 < argc) {
-            for (int j = 0; j < 2; j++) {
-                excitation[j] = atof(argv[++i]);
-            }
-        } else if(strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
-            help_display();
-            return 0;
-        } else if (strcmp(argv[i], "-npt") == 0 && i + 1 < argc) {
-            num_points = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "-bif") == 0) {
-            plot_bifurcation_diagram = 1; // Set a flag to indicate bifurcation diagram plotting
-        } else if (strcmp(argv[i], "-bif_set") == 0 && i + 3 < argc) {
-            for (int j = 0; j < 3; j++) {
-                bifurcation[j] = atof(argv[++i]);
-            }
-        }
+            
+            input->step_size = atof(argv[++i]);
 
-        else {
+        } else if (strcmp(argv[i], "-nstp") == 0 && i + 1 < argc) {
+            
+            input->num_steps = atoi(argv[++i]);
+
+        } else if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
+            
+            input->initial_t = atof(argv[++i]);
+
+        } else if (strcmp(argv[i], "-y") == 0 && i + 3 < argc) {
+            
+            for (int j = 0; j < 3; j++) {
+                input->initial_y[j] = atof(argv[++i]);
+            }
+
+        } else if (strcmp(argv[i], "-param") == 0 && i + 14 < argc) {
+            
+            for (int j = 0; j < 14; j++) {
+                input->param[j] = atof(argv[++i]);
+            }
+
+        } else if (strcmp(argv[i], "-exc") == 0 && i + 2 < argc) {
+            
+            for (int j = 0; j < 2; j++) {
+                input->excitation[j] = atof(argv[++i]);
+            }
+
+        } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0) {
+            
+            help_display();
+            exit(0);
+
+        } else if (strcmp(argv[i], "-npt") == 0 && i + 1 < argc) {
+            
+            input->num_points = atoi(argv[++i]);
+
+        } else if (strcmp(argv[i], "-bif") == 0) {
+            
+            input->plot_bifurcation_diagram = true;
+
+        } else if (strcmp(argv[i], "-bif_set") == 0 && i + 3 < argc) {
+            
+            for (int j = 0; j < 3; j++) {
+                input->bifurcation[j] = atof(argv[++i]);
+            }
+
+        } else {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             help_display();
-            return 1;
+            exit(1);
         }
     }
+}
+
+int main(int argc, char *argv[])
+{
+    // TODO: params and param are very different, consider renaming them to avoid confusion.
+    InputParams input;
+
+    // Parse input arguments
+    parse_input(argc, argv, &input);
+
+    OdeFunctionParams ode_input = {
+        .step_size  = input.step_size,
+        .num_steps  = input.num_steps,
+        .initial_t  = input.initial_t,
+        .initial_y  = {input.initial_y[0], input.initial_y[1], input.initial_y[2]},
+        .excitation = {input.excitation[0], input.excitation[1], input.excitation[2]}
+    };
+    memcpy(ode_input.param, input.param, sizeof(input.param)); // Copy the parameters to the ODE input
     
-    // Plot the results
+    Matrix result = euler_integration_multidimensional(ODE_func, ode_input);
 
-    Matrix result= euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
-
-    //print_matrix(&result); // Print the matrix for debugging
-
-    Vector t = read_matrix_row(&result, 0); // Time data is stored in the first row
-    Vector y = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
+    Vector time = read_matrix_row(&result, 0); // Time data is stored in the first row
+    Vector voltage = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
 
     Plot Alternance;
-    single_plot(&Alternance, &t, &y, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+    single_plot(&Alternance, &time, &voltage, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
     free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
 
     // Plot the bifurcation diagram
-    if(plot_bifurcation_diagram) {
-        bifurcation_diagram(bifurcation, num_points, step_size, initial_t, initial_y, param); // Call the bifurcation diagram function
+    if(input.plot_bifurcation_diagram) {
+        bifurcation_diagram(input.bifurcation, input.num_points, ode_input); // Call the bifurcation diagram function
     }
     //free_matrix(&result); // Free the result matrix
 

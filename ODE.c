@@ -79,15 +79,18 @@ void ODE_func(double t, double *y, double *dydt, double* param, double *excitati
 // ---------------------------- ODE SOLVER ---------------------------
 
 
-Matrix euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *excitation) {
+Matrix euler_integration_multidimensional(ODEFunction ode_func, OdeFunctionParams params) {
     
-    double t = initial_t;
-    double y[dim]; // Current state    double initial_y[] = {0.5, 0.1, 0.0}; // Perturbed initial conditions
-    double dydt[dim]; // Derivatives
+    int     num_steps   = params.num_steps;
+    double  step_size   = params.step_size;
+    double  *param      = params.param;
+    double  *excitation = params.excitation;
 
-    for (int i = 0; i < dim; i++) {
-        y[i] = initial_y[i]; // Initialize y // Maybe initial_y is redundant if it is directly substituted by y.
-    }
+    double  *y  = params.initial_y; // Initial conditions
+    double  t   = params.initial_t;
+    
+    int dim = 3; // Number of dimensions (variables) in the ODE system
+    double dydt[dim]; // Derivatives
 
     Matrix result = create_matrix(dim + 1, num_steps); // rows: 1 for t, dim for y
 

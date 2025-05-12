@@ -12,16 +12,9 @@
         extern void free_matrix(Matrix *mat);
     #endif // ALGEBRA_H
 
-    #ifndef UI_HEADER_H
-        extern void plot_with_sdl(const Vector *x, const Vector *y, const double *axes, const double x_tick, const double y_tick);
-        extern void plot(const Vector *x, const Vector *y);
-        extern void print_matrix(const Matrix *mat);
-        extern void print_vector(const Vector *vec);
-    #endif // UI_HEADER_H
-
     #ifndef ODE_H
-        extern void ODE_func(double t, double *y, double *dydt, double *param, double *ode_param);
-        extern Matrix  euler_integration_multidimensional(ODEFunction ode_func, double step_size, int num_steps, double initial_t, double *initial_y, int dim, double *param, double *ode_param);    
+        extern void ODE_func(double t, double *y, double *dydt, double *function_param, double *ode_param);
+        extern Matrix euler_integration_multidimensional(ODEFunction ode_func, OdeFunctionParams ode_settings);    
     #endif // ODE_H 
 
 #endif // FUNCTIONS_H

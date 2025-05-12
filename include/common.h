@@ -23,6 +23,27 @@ typedef struct {
     double *data;
 } Vector;
 
+typedef struct {
+    double step_size;
+    int num_steps;
+    double num_points;
+    bool plot_bifurcation_diagram;
+    double initial_t;
+    double initial_y[3];
+    double param[14];
+    double excitation[3];
+    double bifurcation[3];
+} InputParams;
+
+typedef struct{
+    double step_size;
+    int num_steps;
+    double initial_t;
+    double initial_y[3];
+    double param[14];
+    double excitation[3];
+} OdeFunctionParams;
+
 #define MAT(m, i, j) (m.data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
 #define VEC(v, i) (v.data[i]) // Access element at i, zero-indexed!!
 
