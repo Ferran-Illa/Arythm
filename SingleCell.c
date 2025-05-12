@@ -36,18 +36,18 @@ Vector read_matrix_row(Matrix *matrix, int row){ // Reads a row of a Matrix as i
 }
 
 // It first finds an upwards crossing point (y>threshold) and then a downwards crossing point (y<threshold) to find the APD and DP values.
-Vector find_values(const Vector time_t , const Vector y_t, int num_excitations, int num_steps, double threshold) {
+Vector find_values(const Vector time_t , const Vector y_t, int num_excitations, int num_steps, double step_size, double threshold) {
     Vector ans= create_vector(2*num_excitations);
     bool STATE=1;
     int j = 0;
     for (int i = 0; i < num_steps; i++) {
         if (VEC(y_t, i) > threshold && STATE) {
-            VEC(ans, j) = VEC(time_t, i);
+            VEC(ans, j) = VEC(time_t, i) - step_size*(VEC(y_t, i) - threshold)/(VEC(y_t, i) - VEC(y_t, i-1)); // Interpolate the crossing point
             STATE=!STATE;
             j++;
         }
         if (VEC(y_t, i) < threshold && !STATE ) {
-            VEC(ans, j) = VEC(time_t, i);
+            VEC(ans, j) = VEC(time_t, i) - step_size*(threshold - VEC(y_t, i))/(VEC(y_t, i-1) - VEC(y_t, i));
             STATE=!STATE;+
             j++;
         }
@@ -114,12 +114,12 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
     int skip_excitations = 20; // Number of excitations to skip at start of T_exc.
     int num_excitations = 5; // Number of excitations to consider for each T_exc.
 
-    Vector APD = create_vector(num_points); // Create a vector to store the APD values.
-    Vector DP = create_vector(num_points); // Create a vector to store the DP values.
+    Vector APD = create_vector(2*num_points); // Create a vector to store the APD values.
+    Vector DP = create_vector(2*num_points); // Create a vector to store the DP values.
 
     //setting time to stabilize (skipping excitations)
-    int num_steps = (int)(skip_excitations*t_tot_min / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
-
+    int num_steps = (int)(skip_excitations*t_tot_max / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 j.
+    excitation[1] = t_tot_max; // T_exc
     Matrix result_t = euler_integration_multidimensional(ODE_func, step_size, num_steps, initial_t, initial_y, 3, param, excitation);
     /*
     // Debugging
@@ -132,7 +132,7 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
     int total_excitations = 0; // Total number of excitations found so far
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
-        excitation[1] = t_tot_min + i * t_tot_step; // T_exc
+        excitation[1] = t_tot_max - i * t_tot_step; // T_exc
 
         initial_y[0] = MAT(result_t, 1, num_steps-1); // Update the initial voltage for the next iteration
         initial_y[1] = MAT(result_t, 2, num_steps-1); // Update the initial fast-gate for the next iteration
@@ -154,7 +154,7 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
             printf("ERROR: The result matrix does not have the expected number of columns.\n");
         }
 
-        num_steps = (int)(num_excitations*excitation[1] / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 pulses.
+        num_steps = (int)(num_excitations*excitation[1] / step_size - 1); // Update num_steps based on the new T_exc, allowing for 10 j.
 
         // Solve the ODE system
         
@@ -163,34 +163,27 @@ void bifurcation_diagram(double *excitation, int num_points, double step_size, d
         Vector t_t = read_matrix_row(&result_t, 0); // Time data is stored in the first row
         Vector y_t = read_matrix_row(&result_t, 1); // ODE Voltage values are stored in the second row
 
-        Vector cross_points = find_values(t_t, y_t, num_excitations, num_steps, param[11]); // Find the crossing points for the first 10 pulses
+        Vector cross_points = find_values(t_t, y_t, num_excitations, num_steps, step_size, param[11]); // Find the crossing points for the first 10 j
            
         /* 
          * Ignore the first pulse (allow for stabilization) (starting at a Dp phase), due to the design of find_values(),
          * the even indices of cross_points indicate the start of the APD phase (and end of the DP phase),
          * the odd ones mark its end and the start of the DP phase.
         */ 
-        int index = 1; // Ignore the first pulse (starting at a DP phase)
-        int found_excitations = cross_points.size/2 - 1; // Number of useful excitations found (integer division!)
-        
+        int index = 1; // Ignore the first pulse (starting at a DP phase)     
+            
+        for(int j = 0; j < 4; j+=2){ // number of crossings (pulses*2) to consider
+            if(index + j + 2 <= cross_points.size) {        
+                DP.data[total_excitations] = excitation[1]; // Calculate PD
+                APD.data[ total_excitations] = VEC(cross_points, index + j+2) - VEC(cross_points, index + j+1); // Calculate APD
 
-        // we're only considering the second excitation out of the 5 pulses        
-        if(index+2 <= cross_points.size) {
-                 
-        DP.data[total_excitations] = VEC(cross_points, index + 1) - VEC(cross_points, index); // Calculate PD
-        APD.data[ total_excitations] = VEC(cross_points, index + 2) - VEC(cross_points, index + 1); // Calculate APD
-        
-    
-        total_excitations += 1; // Update the total number of excitations found
-        //printf("Found %d stabilized excitations for T_exc = %.2f\n", found_excitations, excitation[1]);
+                total_excitations += 1; // Update the total number of excitations found
+            }
+            //printf("Found %d stabilized excitations for T_exc = %.2f\n", found_excitations, excitation[1]);
         }
-        
-         
         // Plot the results (debugging)
         // Plot Alternance;
-        // single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
-
-        
+        // single_plot(&Alternance, &t_t, &y_t, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);    
     }
 
     free_matrix(&result_t); // Free the matrix after use, vectors are freed too with this action.
@@ -216,12 +209,12 @@ int main(int argc, char *argv[])
     double initial_y[] = {0.0, .9, .9};
         // param=[tv+, tv1-, tv2-, tw+, tw-, td, t0, tr, tsi, k, Vsic, Vc, Vv, J_exc]
     //double param[14] = {3.33, 9, 8, 250, 60, .395, 9, 33.33, 29, 15, .5, .13, .04, .1}; // Example parameters set 6
-    //double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, .1}; // Example parameters set 4
+    double param[14] = {3.33, 15.6, 5, 350, 80, .407, 9, 34, 26.5, 15, .45, .15, .04, .1}; // Example parameters set 4
     //double param[14] = {3.33, 19.6, 1250, 870, 41, .25, 12.5, 33.33, 29, 10, .85, .13, .04, .1}; // Example parameters set 3
     //double param[14] = {10, 40, 333, 1000, 65, .115, 12.5, 25, 22.22, 10, .85, .13, .025, .1}; // Example parameters set 10
-    double param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, .85, .13, .055, .1}; // Example parameters set 1
-    double excitation[3]={2, 500}; // Default Periodic excitation parameters [T_exc, T_tot]
-    double bifurcation[3] = {2, 400, 500}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
+    //double param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, .85, .13, .055, .1}; // Example parameters set 1
+    double excitation[3]={2.5, 250}; // Default Periodic excitation parameters [T_exc, T_tot]
+    double bifurcation[3] = {2.55, 120, 350}; // Bifurcation parameters [T_exc, T_tot_min, T_tot_max]
     
     // Input parsing
 
