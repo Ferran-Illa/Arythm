@@ -24,10 +24,14 @@ typedef struct {
 } Vector;
 
 typedef struct {
-    double step_size;
-    int num_steps;
-    double num_points;
+
     bool plot_bifurcation_diagram;
+    bool plot_singlecell_potential;
+
+    int num_steps;
+
+    double step_size;
+    double num_points;
     double initial_t;
     double initial_y[3];
     double param[14];

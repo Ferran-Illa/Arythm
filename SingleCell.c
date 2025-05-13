@@ -41,16 +41,18 @@ Vector find_values(const Vector time_t , const Vector y_t, int num_excitations, 
 void help_display() {
     printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
-    printf("  -stp <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
-    printf("  -nstp <num_steps>      Specify the number of steps for the ODE solver (default: 30000).\n");
-    printf("  -npt <num_points>      Specify the number of points for the bifurcation diagram (default: 100).\n");
-    printf("  -t <initial_t>         Specify the initial time value (default: 0.0).\n");
-    printf("  -y <V> <v> <w>         Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
-    printf("  -param <p1> ... <p14>  Specify the 14 parameters for the ODE system (default: predefined values).\n");
-    printf("  -exc <exc_time> <T_tot> Specify the excitation parameters (default: 1, 300).\n");
-    printf("  -h, -help              Display this help message and exit.\n");
     printf("  -bif                   Plot the bifurcation diagram.\n");
     printf("  -bif_set <T_exc> <T_tot_min> <T_tot_max> Specify bifurcation parameters (default: 1, 300, 400).\n");
+    printf("  -exc <exc_time> <T_tot> Specify the excitation parameters (default: 1, 300).\n");
+    printf("  -h, -help              Display this help message and exit.\n");
+    printf("  -npt <num_points>      Specify the number of points for the bifurcation diagram (default: 100).\n");
+    printf("  -nstp <num_steps>      Specify the number of steps for the ODE solver (default: 30000).\n");    
+    printf("  -param <p1> ... <p14>  Specify the 14 parameters for the ODE system (default: predefined values).\n");
+    printf("  -stp <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
+    printf("  -t <initial_t>         Specify the initial time value (default: 0.0).\n");
+    printf("  -vcell                 Plot the single cell potential.\n");
+    printf("  -y <V> <v> <w>         Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
+    
     printf("\nExamples (default):\n");
     printf("  ./SingleCell.sh -stp 0.05 -nstp 30000 -t 0.0 -y 0.0 0.9 0.9 -param 3.33 15.6 5 350 80 0.407 9 34 26.5 15 0.45 0.15 0.04 1 -exc 1 300 400 -bif\n");
     printf("\nDescription:\n");
@@ -83,7 +85,6 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
 
     return 0;
 }
-
 
 void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParams ode_input) {
 
@@ -182,6 +183,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> num_steps = 30000;
     input -> num_points = 100;
     input -> plot_bifurcation_diagram = false;
+    input -> plot_singlecell_potential = false;
     input -> initial_t = 0.0;
 
     input -> initial_y[0] = 0.0;
@@ -252,6 +254,8 @@ void parse_input(int argc, char *argv[], InputParams *input) {
                 input->bifurcation[j] = atof(argv[++i]);
             }
 
+        } else if (strcmp(argv[i], "-vcell") == 0){
+            input->plot_singlecell_potential = true;
         } else {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             help_display();
@@ -277,16 +281,17 @@ int main(int argc, char *argv[])
     };
     memcpy(ode_input.param, input.param, sizeof(input.param)); // Copy the parameters to the ODE input
     
-    Matrix result = euler_integration_multidimensional(ODE_func, ode_input);
+    if(input.plot_singlecell_potential){
+        Matrix result = euler_integration_multidimensional(ODE_func, ode_input);
 
-    Vector time = read_matrix_row(&result, 0); // Time data is stored in the first row
-    Vector voltage = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
+        Vector time = read_matrix_row(&result, 0); // Time data is stored in the first row
+        Vector voltage = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
 
-    Plot Alternance;
-    single_plot(&Alternance, &time, &voltage, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+        Plot Alternance;
+        single_plot(&Alternance, &time, &voltage, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
 
-    free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
-
+        free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
+    }
     // Plot the bifurcation diagram
     if(input.plot_bifurcation_diagram) {
         bifurcation_diagram(input.bifurcation, input.num_points, ode_input); // Call the bifurcation diagram function
