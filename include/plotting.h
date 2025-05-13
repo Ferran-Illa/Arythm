@@ -44,7 +44,8 @@ typedef enum {
     PLOT_LINE,
     PLOT_SCATTER,
     PLOT_BAR,
-    PLOT_STEM
+    PLOT_STEM,
+    PLOT_HEATMAP
 } PlotType;
 
 // Color structure
@@ -64,6 +65,7 @@ typedef struct {
     double* x_data;
     double* y_data;
     int data_length;
+
     char label[MAX_LABEL_LENGTH];
     Color color;
     LineStyle line_style;
@@ -71,6 +73,13 @@ typedef struct {
     int line_width;
     int marker_size;
     PlotType plot_type;
+
+    DiffVideo diff_video_generator; // Function pointer for diffusion video generator
+    DiffusionData* diffusion_data; // Data for diffusion video
+    OdeFunctionParams* ode_input; // Diffusion video ODE setup
+    int frame_speed; // Speed of the video (computed iterations per frame)
+
+    bool dynamic_plot; // 1D or 2D
     bool visible;
 } DataSeries;
 
@@ -101,6 +110,7 @@ typedef struct {
     double pan_x;
     double pan_y;
     bool auto_scale;
+    bool IsPaused; // Flag to pause the plot if it has a video
     
     // Fullscreen related properties
     bool fullscreen;         // Flag to track fullscreen state
@@ -139,8 +149,10 @@ typedef enum {
     PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec, const char* label, 
                             Color color, LineStyle line_style, MarkerType marker_type,
                             int line_width, int marker_size, PlotType plot_type);
+    PlotError plot_config_video(Plot* plot, bool dynamic_plot, 
+                            DiffVideo diff_video_generator, DiffusionData* diffusion_data, 
+                            OdeFunctionParams* ode_input, int frame_speed);
     extern void plot_cleanup(Plot* plot);
-    
 #endif // PLOTTING_C
 
 #endif // PLOTTING_H

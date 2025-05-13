@@ -1,5 +1,6 @@
 #include "include/common.h"
 #include "include/plotting.h"
+#include "include/functions.h"
 
 #ifndef PLOTTING_C
 #define PLOTTING_C
@@ -32,6 +33,8 @@ PlotError plot_init(Plot* plot) {
     plot->series_count = 0;
     plot->show_grid = true;
     plot->show_legend = true;
+
+    plot->IsPaused = false; // Initialize non-paused state
     
     // Default colors
     plot->background_color = (Color){255, 255, 255, 255}; // White
@@ -69,6 +72,24 @@ PlotError plot_init(Plot* plot) {
     return PLOT_SUCCESS;
 }
 
+PlotError plot_config_video(Plot* plot, bool dynamic_plot, 
+        DiffVideo diff_video_generator, DiffusionData* diffusion_data, 
+        OdeFunctionParams* ode_input, int frame_speed) 
+{
+    if (plot == NULL || diffusion_data == NULL || ode_input == NULL) {
+        return PLOT_ERROR_INVALID_DATA;
+    }
+    
+    // Set dynamic plot properties
+    plot->series[0].dynamic_plot = dynamic_plot;
+    plot->series[0].diff_video_generator = diff_video_generator;
+    plot->series[0].diffusion_data = diffusion_data;
+    plot->series[0].ode_input = ode_input;
+    plot->series[0].frame_speed = frame_speed;
+    
+    return PLOT_SUCCESS;
+
+}
 // Function to add a data series to a plot
 PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec, 
         const char* label, Color color, LineStyle line_style, MarkerType marker_type,
@@ -122,6 +143,12 @@ PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec,
     series->marker_size = marker_size;
     series->plot_type = plot_type;
     series->visible = true;
+
+    series->diff_video_generator = NULL;
+    series->diffusion_data = NULL;
+    series->ode_input = NULL;
+    series->frame_speed = 10;
+    series->dynamic_plot = false;
     
     plot->series_count++;
     
@@ -1193,6 +1220,15 @@ PlotError plot_show(Plot* plot) {
                    plot->title_area.x + plot->title_area.width / 2, 
                    plot->title_area.y, 
                    plot->text_color, true);
+
+        // Draw legend
+        draw_legend(renderer, font, plot);
+        
+        // Draw help text
+        char help_text[256];
+        snprintf(help_text, sizeof(help_text), 
+                "Mouse wheel: Zoom, Left drag: Pan, R: Reset view, G: Toggle grid, L: Legend, F: Fullscreen");
+        render_text(renderer, font, help_text, plot->window_width / 2, plot->window_height - 15, plot->text_color, true);
         
         // Draw all data series
         for (int s = 0; s < plot->series_count; s++) {
@@ -1200,6 +1236,15 @@ PlotError plot_show(Plot* plot) {
             
             if (!series->visible || series->data_length <= 0) continue;
             
+            // Update series data if dynamic
+            if(series->dynamic_plot && !plot->IsPaused){
+
+                if(series->diff_video_generator(series->ode_input, series->diffusion_data, series->frame_speed) != 0){
+                    printf("Error generating data for series %d\n", s);
+                    break;
+                }
+            }
+
             // Set the drawing color
             SDL_SetRenderDrawColor(renderer, series->color.r, series->color.g, series->color.b, series->color.a);
             
@@ -1278,15 +1323,6 @@ PlotError plot_show(Plot* plot) {
             }
         }
         
-        // Draw legend
-        draw_legend(renderer, font, plot);
-        
-        // Draw help text
-        char help_text[256];
-        snprintf(help_text, sizeof(help_text), 
-                "Mouse wheel: Zoom, Left drag: Pan, R: Reset view, G: Toggle grid, L: Legend, F: Fullscreen");
-        render_text(renderer, font, help_text, plot->window_width / 2, plot->window_height - 15, plot->text_color, true);
-        
         // Update screen
         SDL_RenderPresent(renderer);
         
@@ -1320,71 +1356,3 @@ void plot_cleanup(Plot* plot) {
 }
 
 #endif
-/*
-// Example usage
-int main() {
-    // Initialize plot
-    Plot plot;
-    plot_init(&plot);
-    
-    // Set plot properties
-    strcpy(plot.title, "Enhanced MATLAB-like Plot with Visual Fixes");
-    strcpy(plot.x_label, "X-Axis");
-    strcpy(plot.y_label, "Y-Axis");
-    
-    // Create some example data
-    double x1[100], y1[100];
-    double x2[50], y2[50];
-    double x3[20], y3[20];
-    double x4[10], y4[10];
-    
-    // Generate data for multiple series
-    for (int i = 0; i < 100; i++) {
-        x1[i] = i * 0.1;
-        y1[i] = sin(x1[i]) * exp(-x1[i] * 0.1);
-    }
-    
-    for (int i = 0; i < 50; i++) {
-        x2[i] = i * 0.2;
-        y2[i] = cos(x2[i]);
-    }
-    
-    for (int i = 0; i < 20; i++) {
-        x3[i] = i * 0.5;
-        y3[i] = 0.5 * x3[i] * x3[i];
-    }
-    
-    for (int i = 0; i < 10; i++) {
-        x4[i] = i;
-        y4[i] = i * 0.8;
-    }
-    
-    // Add data series with different styles
-    plot_add_series(&plot, x1, y1, 100, "Damped Sine", 
-                   (Color){0, 0, 255, 255}, // Blue
-                   LINE_SOLID, MARKER_CIRCLE, 2, 4, PLOT_LINE);
-    
-    plot_add_series(&plot, x2, y2, 50, "Cosine", 
-                   (Color){255, 0, 0, 255}, // Red
-                   LINE_DASHED, MARKER_SQUARE, 2, 4, PLOT_LINE);
-    
-    plot_add_series(&plot, x3, y3, 20, "Quadratic", 
-                   (Color){0, 180, 0, 255}, // Green
-                   LINE_DOTTED, MARKER_TRIANGLE, 2, 5, PLOT_LINE);
-    
-    plot_add_series(&plot, x4, y4, 10, "Linear", 
-                   (Color){128, 0, 128, 255}, // Purple
-                   LINE_DASH_DOT, MARKER_DIAMOND, 2, 5, PLOT_BAR);
-    
-    // Show the plot
-    PlotError error = plot_show(&plot);
-    if (error != PLOT_SUCCESS) {
-        fprintf(stderr, "Error showing plot: %d\n", error);
-    }
-    
-    // Clean up
-    plot_cleanup(&plot);
-    
-    return 0;
-}
-    */

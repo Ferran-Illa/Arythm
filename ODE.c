@@ -113,7 +113,18 @@ Matrix euler_integration_multidimensional(ODEFunction ode_func, OdeFunctionParam
     return result;
 }
 
-void diffusion(OdeFunctionParams ode_input, int rows, int cols, double time, Vector *M_voltage, Vector *M_vgate, Vector *M_wgate, double diffusion, double cell_size, int excited_cells) {
+void diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data) {
+    // Extract parameters from the input structure
+    int rows = diffusion_data->rows;
+    int cols = diffusion_data->cols;
+    double time = diffusion_data->time;
+    Vector *M_voltage = diffusion_data->M_voltage;
+    Vector *M_vgate = diffusion_data->M_vgate;
+    Vector *M_wgate = diffusion_data->M_wgate;
+    double diffusion = diffusion_data->diffusion;
+    double cell_size = diffusion_data->cell_size;
+    int excited_cells = diffusion_data->excited_cells;
+
     // Loop over the grid points
     double Prev_Voltage = VEC(*M_voltage, rows-1); // Periodic boundary condition, before i = 0 comes i = rows-1 (the last cell)
     for (int i = 0; i < rows-1; i++) {
@@ -123,14 +134,14 @@ void diffusion(OdeFunctionParams ode_input, int rows, int cols, double time, Vec
         
         if(i >= excited_cells){time = -1;} // If the cell is not excited, set time to -1 to avoid excitation
 
-        ODE_func(time, y, dydt, ode_input.param, ode_input.excitation); // Call the ODE function to compute derivatives
+        ODE_func(time, y, dydt, ode_input->param, ode_input->excitation); // Call the ODE function to compute derivatives
         
         dydt[0] += ( VEC(*M_voltage, i+1) - 2*VEC(*M_voltage, i) + Prev_Voltage )* diffusion / pow(cell_size, 2); // 1D Diffusion term for voltage
         
         Prev_Voltage = VEC(*M_voltage, i); // Store the unupdated voltage value
-        M_voltage   -> data[i] += dydt[0] * ode_input.step_size; // Update voltage
-        M_vgate     -> data[i] += dydt[1] * ode_input.step_size; // Update vgate
-        M_wgate     -> data[i] += dydt[2] * ode_input.step_size; // Update wgate
+        M_voltage   -> data[i] += dydt[0] * ode_input->step_size; // Update voltage
+        M_vgate     -> data[i] += dydt[1] * ode_input->step_size; // Update vgate
+        M_wgate     -> data[i] += dydt[2] * ode_input->step_size; // Update wgate
 
     }
     // Fulfill the non-flux (neumann's boundary condition) at the edges of the grid

@@ -185,6 +185,21 @@ void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParam
     single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
 }
 
+int diffusion_1D_video(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int frames) {
+    // Extract parameters from the input structure
+    if(frames <= 0) {
+        printf("ERROR: The number of frames must be positive.\n");
+        return -1;
+    }
+    
+    for(int f = 0; f < frames; f++){
+        diffusion1D(ode_input, diffusion_data); // Diffusion step //TODO: This doesn't do anything! Pass the pointer
+        diffusion_data->time += ode_input->step_size;
+    }
+
+    return 0;
+}
+
 void parse_input(int argc, char *argv[], InputParams *input) {
     // Default values
     input -> step_size = 0.05;
@@ -365,20 +380,66 @@ int main(int argc, char *argv[])
         Vector M_voltage = create_vector(input.tissue_size[0]); 
         Vector M_vgate   = create_vector(input.tissue_size[0]);
         Vector M_wgate   = create_vector(input.tissue_size[0]);
+        Vector M_pos     = create_vector(input.tissue_size[0]); // Index vector for the cells
 
         // Set the initial conditions for each grid point
         for(int i = 0; i < input.tissue_size[0]; i++){
             M_voltage.data[i] = input.initial_y[0];
             M_vgate.data[i]   = input.initial_y[1];
             M_wgate.data[i]   = input.initial_y[2];
+            M_pos.data[i]     = i*input.cell_size; // Set the position of each cell
         }
 
         // Time Evolution
-        for( int f = 0; f < input.frames; f++){
-            // TODO: Maybe diffusion could take a struct as input for better readability.
-            diffusion(ode_input, rows, cols, time, &M_voltage, &M_vgate, &M_wgate, input.diffusion, input.cell_size, input.excited_cells[0]); // Diffusion step
-            time += input.step_size;
+        DiffusionData diffusion_config = {
+            .rows = rows,
+            .cols = cols,
+            .time = time,
+            .M_voltage = &M_voltage,
+            .M_vgate   = &M_vgate,
+            .M_wgate   = &M_wgate,
+            .diffusion = input.diffusion,
+            .cell_size = input.cell_size,
+            .excited_cells = input.excited_cells[0]
+        };
+
+        diffusion_1D_video(&ode_input, &diffusion_config, 1); // Call the diffusion function for the first frame.
+
+        Plot frametest;
+        single_plot(&frametest, &M_pos, &M_voltage, "Diffusion 1D Frame 1", "Time (s)", "Voltage (V)", PLOT_LINE); // Plot the first frame
+
+        Plot diffusion_plot;
+        plot_init(&diffusion_plot); // Initialize the plot
+
+        strcpy(diffusion_plot.title, "Diffusion 1D");
+        strcpy(diffusion_plot.x_label, "Time (s)");
+        strcpy(diffusion_plot.y_label, "Voltage (V)");
+
+        // Add series to the plot
+        plot_add_series(&diffusion_plot, &M_pos, &M_voltage, "Voltage", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_NONE, 1, 2, PLOT_LINE);
+        plot_config_video(&diffusion_plot, true, diffusion_1D_video, &diffusion_config, &ode_input, 30); // Dynamic plot
+
+        PlotError error = plot_show(&diffusion_plot);
+        if (error != PLOT_SUCCESS) {
+            fprintf(stderr, "Error showing plot: %d\n", error);
+        return -1;
         }
+
+        // Clean up
+        plot_cleanup(&diffusion_plot);
+        /*
+        int speed = 10;
+        for( int f = 0; f < input.frames; f++ ){
+
+            diffusion1D(ode_input, diffusion_config); // Diffusion step
+            diffusion_config.time += ode_input.step_size;
+            
+            if(speed == 10){
+                // Plot current frame
+            }
+            speed += 1;
+        }
+        */
     }
 
     // Plot the 2D bifurcation diagram

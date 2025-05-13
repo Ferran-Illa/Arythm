@@ -55,6 +55,18 @@ typedef struct{
     double excitation[3];
 } OdeFunctionParams;
 
+typedef struct {
+    int rows;
+    int cols;
+    double time;
+    Vector *M_voltage;
+    Vector *M_vgate;
+    Vector *M_wgate;
+    double diffusion;
+    double cell_size;
+    int excited_cells;
+} DiffusionData;
+
 #define MAT(m, i, j) ((m).data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
 #define VEC(v, i) ((v).data[i]) // Access element at i, zero-indexed!!
 
@@ -62,5 +74,6 @@ typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param, do
 // Represents a function for solving ordinary differential equations (ODEs),
 // where 't' is the independent variable (time) and 'y' is the dependent variable.
 
+typedef int (*DiffVideo)(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int frames); // Function pointer type for diffusion functions
 
 #endif // COMMON_H

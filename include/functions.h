@@ -15,7 +15,7 @@
     #ifndef ODE_H
         extern void ODE_func(double t, double *y, double *dydt, double *function_param, double *ode_param);
         extern Matrix euler_integration_multidimensional(ODEFunction ode_func, OdeFunctionParams ode_settings);
-        extern void diffusion(OdeFunctionParams ode_input, int rows, int cols, double time, Vector *M_voltage, Vector *M_vgate, Vector *M_wgate, double diffusion, double cell_size, int excited_cells);    
+        extern void diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data);    
     #endif // ODE_H 
 
 #endif // FUNCTIONS_H
