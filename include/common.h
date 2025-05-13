@@ -27,8 +27,13 @@ typedef struct {
 
     bool plot_bifurcation_diagram;
     bool plot_singlecell_potential;
+    bool plot_1D;
+    bool plot_2D;
 
     int num_steps;
+    int frames;
+    int tissue_size[2];
+    int excited_cells[2];
 
     double step_size;
     double num_points;
@@ -37,6 +42,8 @@ typedef struct {
     double param[14];
     double excitation[3];
     double bifurcation[3];
+    double diffusion;
+    double cell_size;
 } InputParams;
 
 typedef struct{
@@ -48,8 +55,8 @@ typedef struct{
     double excitation[3];
 } OdeFunctionParams;
 
-#define MAT(m, i, j) (m.data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
-#define VEC(v, i) (v.data[i]) // Access element at i, zero-indexed!!
+#define MAT(m, i, j) ((m).data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
+#define VEC(v, i) ((v).data[i]) // Access element at i, zero-indexed!!
 
 typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param, double *excitation_control); // Ensure ODEFunction matches ODE_func signature
 // Represents a function for solving ordinary differential equations (ODEs),

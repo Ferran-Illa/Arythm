@@ -43,15 +43,23 @@ void help_display() {
     printf("Options:\n");
     printf("  -bif                   Plot the bifurcation diagram.\n");
     printf("  -bif_set <T_exc> <T_tot_min> <T_tot_max> Specify bifurcation parameters (default: 1, 300, 400).\n");
+    printf("  -cellsz <cell_size>   Specify the cell size (default: 1).\n");
+    printf("  -diff <diffusion>     Specify the diffusion coefficient (default: 1).\n");
     printf("  -exc <exc_time> <T_tot> Specify the excitation parameters (default: 1, 300).\n");
+    printf("  -ex_cell <x> <y>     Specify the excited cells (default: 20, 20).\n");
+    printf("  -frame <num_frames>     Specify the number of frames for the 1D plot (default: 10000).\n");
     printf("  -h, -help              Display this help message and exit.\n");
     printf("  -npt <num_points>      Specify the number of points for the bifurcation diagram (default: 100).\n");
     printf("  -nstp <num_steps>      Specify the number of steps for the ODE solver (default: 30000).\n");    
     printf("  -param <p1> ... <p14>  Specify the 14 parameters for the ODE system (default: predefined values).\n");
     printf("  -stp <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
     printf("  -t <initial_t>         Specify the initial time value (default: 0.0).\n");
+    printf("  -tissue <x> <y>       Specify the tissue size (default: 100, 100).\n");
     printf("  -vcell                 Plot the single cell potential.\n");
     printf("  -y <V> <v> <w>         Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
+    printf("  -1D                   Plot the 1D bifurcation diagram.\n");
+    printf("  -2D                   Plot the 2D bifurcation diagram.\n");
+    
     
     printf("\nExamples (default):\n");
     printf("  ./SingleCell.sh -stp 0.05 -nstp 30000 -t 0.0 -y 0.0 0.9 0.9 -param 3.33 15.6 5 350 80 0.407 9 34 26.5 15 0.45 0.15 0.04 1 -exc 1 300 400 -bif\n");
@@ -182,9 +190,18 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> step_size = 0.05;
     input -> num_steps = 30000;
     input -> num_points = 100;
+    input -> tissue_size[0] = 100;
+    input -> tissue_size[1] = 100;
+    input -> excited_cells[0] = 20;
+    input -> excited_cells[1] = 20;
+    
     input -> plot_bifurcation_diagram = false;
     input -> plot_singlecell_potential = false;
+    input -> plot_1D = false;
+    input -> plot_2D = false;
+
     input -> initial_t = 0.0;
+    input -> frames = 10000;
 
     input -> initial_y[0] = 0.0;
     input -> initial_y[1] = 0.9;
@@ -196,12 +213,15 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
     // Default excitation and bifurcation parameters
     input -> excitation[0] = 2.5;
-    input -> excitation[1] = 250;
-    input -> excitation[2] = 400;
+    input -> excitation[1] = 200;
+    input -> excitation[2] = 300;
 
     input -> bifurcation[0] = 2.55;
     input -> bifurcation[1] = 120;
     input -> bifurcation[2] = 350;
+
+    input -> diffusion = 1;
+    input -> cell_size = 1;
 
     // Parse command-line arguments
     for (int i = 1; i < argc; i++) {
@@ -255,7 +275,41 @@ void parse_input(int argc, char *argv[], InputParams *input) {
             }
 
         } else if (strcmp(argv[i], "-vcell") == 0){
+
             input->plot_singlecell_potential = true;
+
+        } else if (strcmp(argv[i], "-1D") == 0){
+
+            input->plot_1D = true;
+            
+        } else if (strcmp(argv[i], "-2D") == 0){
+
+            input->plot_2D = true;
+            
+        } else if (strcmp(argv[i], "-tissue") == 0 && i + 2 < argc){
+
+            for (int j = 0; j < 2; j++) {
+                input->tissue_size[j] = atof(argv[++i]);
+            }
+            
+        } else if (strcmp(argv[i], "-frames") == 0 && i + 1 < argc){
+
+            input->frames = atof(argv[++i]);
+            
+        } else if (strcmp(argv[i], "-cellsz") == 0 && i + 1 < argc){
+
+            input->cell_size = atof(argv[++i]);
+            
+        } else if (strcmp(argv[i], "-diff") == 0 && i + 1 < argc){
+
+            input->diffusion = atof(argv[++i]);
+            
+        } else if (strcmp(argv[i], "-ex_cell") == 0 && i + 2 < argc){
+
+            for (int j = 0; j < 2; j++) {
+                input->excited_cells[j] = atof(argv[++i]);
+            }
+            
         } else {
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             help_display();
@@ -281,6 +335,7 @@ int main(int argc, char *argv[])
     };
     memcpy(ode_input.param, input.param, sizeof(input.param)); // Copy the parameters to the ODE input
     
+    // Plot the single cell potential
     if(input.plot_singlecell_potential){
         Matrix result = euler_integration_multidimensional(ODE_func, ode_input);
 
@@ -292,12 +347,44 @@ int main(int argc, char *argv[])
 
         free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     }
+    
     // Plot the bifurcation diagram
     if(input.plot_bifurcation_diagram) {
         bifurcation_diagram(input.bifurcation, input.num_points, ode_input); // Call the bifurcation diagram function
     }
-    //free_matrix(&result); // Free the result matrix
+    
+    // Plot the 1D bifurcation diagram
+    if(input.plot_1D){
+        // Initialization
+        // What was once an array is now a "matrix", three vectors.
+        int rows = input.tissue_size[0];
+        int cols = input.tissue_size[1];
 
+        double time = 0.0;
+
+        Vector M_voltage = create_vector(input.tissue_size[0]); 
+        Vector M_vgate   = create_vector(input.tissue_size[0]);
+        Vector M_wgate   = create_vector(input.tissue_size[0]);
+
+        // Set the initial conditions for each grid point
+        for(int i = 0; i < input.tissue_size[0]; i++){
+            M_voltage.data[i] = input.initial_y[0];
+            M_vgate.data[i]   = input.initial_y[1];
+            M_wgate.data[i]   = input.initial_y[2];
+        }
+
+        // Time Evolution
+        for( int f = 0; f < input.frames; f++){
+            // TODO: Maybe diffusion could take a struct as input for better readability.
+            diffusion(ode_input, rows, cols, time, &M_voltage, &M_vgate, &M_wgate, input.diffusion, input.cell_size, input.excited_cells[0]); // Diffusion step
+            time += input.step_size;
+        }
+    }
+
+    // Plot the 2D bifurcation diagram
+    if(input.plot_2D){
+        printf("Work In Progress");
+    }
     return 0;
 
     }

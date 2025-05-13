@@ -113,6 +113,30 @@ Matrix euler_integration_multidimensional(ODEFunction ode_func, OdeFunctionParam
     return result;
 }
 
+void diffusion(OdeFunctionParams ode_input, int rows, int cols, double time, Vector *M_voltage, Vector *M_vgate, Vector *M_wgate, double diffusion, double cell_size, int excited_cells) {
+    // Loop over the grid points
+    double Prev_Voltage = VEC(*M_voltage, rows-1); // Periodic boundary condition, before i = 0 comes i = rows-1 (the last cell)
+    for (int i = 0; i < rows-1; i++) {
+        
+        double y[3] = {VEC(*M_voltage, i), VEC(*M_vgate, i), VEC(*M_wgate, i)}; // Casting to fit required type for Ode_func
+        double dydt[3]; // Derivatives
+        
+        if(i >= excited_cells){time = -1;} // If the cell is not excited, set time to -1 to avoid excitation
 
+        ODE_func(time, y, dydt, ode_input.param, ode_input.excitation); // Call the ODE function to compute derivatives
+        
+        dydt[0] += ( VEC(*M_voltage, i+1) - 2*VEC(*M_voltage, i) + Prev_Voltage )* diffusion / pow(cell_size, 2); // 1D Diffusion term for voltage
+        
+        Prev_Voltage = VEC(*M_voltage, i); // Store the unupdated voltage value
+        M_voltage   -> data[i] += dydt[0] * ode_input.step_size; // Update voltage
+        M_vgate     -> data[i] += dydt[1] * ode_input.step_size; // Update vgate
+        M_wgate     -> data[i] += dydt[2] * ode_input.step_size; // Update wgate
+
+    }
+    // Fulfill the non-flux (neumann's boundary condition) at the edges of the grid
+    M_voltage   -> data[rows-1] = M_voltage -> data[0]; // Periodic boundary condition
+    M_vgate     -> data[rows-1] = M_vgate   -> data[0]; // Update vgate
+    M_wgate     -> data[rows-1] = M_wgate   -> data[0]; // Update wgate
+}
 // End of ODE_H guard
 #endif
