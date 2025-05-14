@@ -121,57 +121,70 @@ int diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
     }
 
     // Extract parameters from the input structure
-    int rows            = diffusion_data -> rows;
-    int cols            = diffusion_data -> cols;
+    int rows            = diffusion_data -> M_voltage -> rows; // Number of rows in the matrix
+    int cols            = diffusion_data -> M_voltage -> cols; // Number of columns in the matrix
     double time_copy    = diffusion_data -> time;
-    Vector *M_voltage   = diffusion_data -> M_voltage;
-    Vector *M_vgate     = diffusion_data -> M_vgate;
-    Vector *M_wgate     = diffusion_data -> M_wgate;
+    Matrix *M_voltage   = diffusion_data -> M_voltage;
+    Matrix *M_vgate     = diffusion_data -> M_vgate;
+    Matrix *M_wgate     = diffusion_data -> M_wgate;
     double diffusion    = diffusion_data -> diffusion;
     double cell_size    = diffusion_data -> cell_size;
     int excited_cells   = diffusion_data -> excited_cells;
 
     bool no_excitation = true; // Flag to control excitation, avoid excitations by default
-
+    bool Is1D = false; // Flag to check if the matrix is 1D
+    if(rows == 1){ 
+        Is1D = true;
+        rows += 2; // Add two rows for the periodic boundary conditions 
+    }
     for(int f = 0; f < frames; f++){
-        
+        // VEC reads the first and only row of the matrices. Should work. Might be weird.
         double Prev_Voltage = VEC(*M_voltage, 0); // Periodic boundary condition, before i = 1 comes (i = 0) (the first cell)
         time_copy = diffusion_data->time; // Update the time for the ODE function
-
-        for (int i = 1; i < rows-1; i++) {
         
-            double y[3] = {VEC(*M_voltage, i), VEC(*M_vgate, i), VEC(*M_wgate, i)}; // Casting to fit required type for Ode_func
-            double dydt[3]; // Derivatives
+        for (int j = 1; j < rows-1; j++) {
+            for (int i = 1; i < cols-1; i++) {
             
-            if(i < excited_cells){ // && (time_copy <= ode_input->excitation[0]) ){
-                no_excitation = false; // Cells to be excited once
-            }
-            else{
-                no_excitation = true; // Cells not to be excited
-            }
+                double y[3] = {VEC(*M_voltage, i), VEC(*M_vgate, i), VEC(*M_wgate, i)}; // Casting to fit required type for Ode_func
+                double dydt[3]; // Derivatives
+                
+                if(i < excited_cells){ // && (time_copy <= ode_input->excitation[0]) ){
+                    no_excitation = false; // Cells to be excited once
+                }
+                else{
+                    no_excitation = true; // Cells not to be excited
+                }
 
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function to compute derivatives
-            
-            dydt[0] += ( VEC(*M_voltage, i+1) - 2*VEC(*M_voltage, i) + Prev_Voltage )* diffusion / pow(cell_size, 2); // 1D Diffusion term for voltage
-            
-            Prev_Voltage = VEC(*M_voltage, i); // Store the unupdated voltage value
-            M_voltage   -> data[i] += dydt[0] * ode_input->step_size; // Update voltage
-            M_vgate     -> data[i] += dydt[1] * ode_input->step_size; // Update vgate
-            M_wgate     -> data[i] += dydt[2] * ode_input->step_size; // Update wgate
+                ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function to compute derivatives
+                
+                dydt[0] += ( VEC(*M_voltage, i+1) - 2*VEC(*M_voltage, i) + Prev_Voltage )* diffusion / pow(cell_size, 2); // 1D Diffusion term for voltage
+                
+                Prev_Voltage = VEC(*M_voltage, i); // Store the unupdated voltage value
+                M_voltage   -> data[i] += dydt[0] * ode_input->step_size; // Update voltage
+                M_vgate     -> data[i] += dydt[1] * ode_input->step_size; // Update vgate
+                M_wgate     -> data[i] += dydt[2] * ode_input->step_size; // Update wgate
 
+            }
+            // Fulfill the non-flux boundary conditions at the edges of the grid
+            M_voltage   -> data[cols-1] = M_voltage -> data[cols-2]; // Periodic boundary condition
+            M_vgate     -> data[cols-1] = M_vgate   -> data[cols-2]; // Update vgate
+            M_wgate     -> data[cols-1] = M_wgate   -> data[cols-2]; // Update wgate
+
+            M_voltage   -> data[0]     = M_voltage -> data[1]; // Periodic boundary condition
+            M_vgate     -> data[0]     = M_vgate   -> data[1]; // Update vgate
+            M_wgate     -> data[0]     = M_wgate   -> data[1]; // Update wgate
+            
+            diffusion_data->time += ode_input->step_size;
         }
-        // Fulfill the non-flux boundary conditions at the edges of the grid
-        M_voltage   -> data[rows-1] = M_voltage -> data[rows-2]; // Periodic boundary condition
-        M_vgate     -> data[rows-1] = M_vgate   -> data[rows-2]; // Update vgate
-        M_wgate     -> data[rows-1] = M_wgate   -> data[rows-2]; // Update wgate
 
-        M_voltage   -> data[0]     = M_voltage -> data[1]; // Periodic boundary condition
-        M_vgate     -> data[0]     = M_vgate   -> data[1]; // Update vgate
-        M_wgate     -> data[0]     = M_wgate   -> data[1]; // Update wgate
-        
-        diffusion_data->time += ode_input->step_size;
-    }
+}
     // Loop over the grid points
+    return 0;
+}
+
+int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int frames) {
+    // Implement the 2D diffusion logic here
+    // This is a placeholder for the actual implementation
     return 0;
 }
 // End of ODE_H guard

@@ -154,7 +154,6 @@ PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec,
     
     return PLOT_SUCCESS;
 }
-
 // Function to find the min and max values in an array
 Range find_range(const double* data, int length, ScaleType scale_type) {
     Range range = {data[0], data[0], scale_type};
@@ -552,8 +551,8 @@ void get_text_dimensions(TTF_Font* font, const char* text, int* width, int* heig
     TTF_SizeText(font, text, width, height);
 }
 
-// Function to render text with proper font
-void render_text(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x, int y, Color color, bool center) {
+// Corrected function declaration for render_text
+int render_text(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x, int y, Color color, bool center) {
     SDL_Color sdl_color = {color.r, color.g, color.b, color.a};
     SDL_Surface* surface = TTF_RenderText_Blended(font, text, sdl_color);
     
@@ -573,6 +572,7 @@ void render_text(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x
         
         SDL_FreeSurface(surface);
     }
+    return 0;
 }
 
 // Rendering Rotated Text (Y-Label)
@@ -609,9 +609,9 @@ void calculate_legend_dimensions(Plot* plot, TTF_Font* font, int* width, int* he
     *height = plot->series_count * item_height + padding;
 }
 
-// MODIFIED: Function to draw the legend with proper positioning
-void draw_legend(SDL_Renderer* renderer, TTF_Font* font, Plot* plot) {
-    if (!plot->show_legend || plot->series_count == 0) return;
+// Corrected function declaration for draw_legend
+int draw_legend(SDL_Renderer* renderer, TTF_Font* font, Plot* plot) {
+    if (!plot->show_legend || plot->series_count == 0) return 0;
     
     int legend_width, legend_height;
     calculate_legend_dimensions(plot, font, &legend_width, &legend_height);
@@ -669,6 +669,7 @@ void draw_legend(SDL_Renderer* renderer, TTF_Font* font, Plot* plot) {
                    legend_x + padding + line_length + 5, y + item_height/2 - 8, 
                    plot->text_color, false);
     }
+    return 0;
 }
 
 // ADDED: Function to calculate layout based on window size and text dimensions
@@ -877,6 +878,10 @@ void handle_key_event(Plot* plot, SDL_KeyboardEvent key, SDL_Window* window) {
                     plot_auto_scale(plot);
                 }
                 break;
+            case SDLK_SPACE:
+                // Toggle pause
+                plot->IsPaused = !plot->IsPaused;
+                break;
                 
             case SDLK_F11:
             case SDLK_f:
@@ -1010,6 +1015,52 @@ void draw_stem_plot(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
             draw_marker(renderer, x, y, 
                        series->marker_type != MARKER_NONE ? series->marker_type : MARKER_CIRCLE, 
                        series->marker_size, series->color, plot->plot_area);
+        }
+    }
+}
+
+// ADDED: Function to draw a heatmap
+void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
+    // Ensure the data series has valid data
+    if (!series->x_data || !series->y_data || series->data_length <= 0) {
+        return;
+    }
+    Matrix* heatmap_data = series->diffusion_data->M_voltage;
+    // Calculate the number of rows and columns in the grid
+    int rows = heatmap_data->rows;
+    int cols = heatmap_data->cols;
+
+    // Calculate the width and height of each cell
+    int cell_width = (int)plot->plot_area.width / cols;
+    int cell_height = (int)plot->plot_area.height / rows;
+
+    if(cell_width < 1 || cell_height < 1) {
+        cell_width = 1; // Avoid division by zero
+        cell_height = 1; // Avoid division by zero
+        printf("Warning: Cell size is too small, setting to minimum size of 1x1.\n");
+    }
+
+    // Iterate through the grid and draw each cell
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+            // Calculate the data value for this cell
+            double value = MAT(*heatmap_data, row, col);
+
+            // Map the value to a color (e.g., using a gradient)
+            Uint8 r = (Uint8)(255 * value);
+            Uint8 g = (Uint8)(255 * (1 - value));
+            Uint8 b = 128;
+            Uint8 a = 255;
+
+            // Calculate the position and size of the cell
+            int x = plot->plot_area.x + col * cell_width;
+            int y = plot->plot_area.y + row * cell_height;
+
+            // Draw the cell
+            SDL_SetRenderDrawColor(renderer, r, g, b, a);
+            
+            SDL_Rect cell_rect = {x, y, cell_width, cell_height};
+            SDL_RenderFillRect(renderer, &cell_rect);
         }
     }
 }
@@ -1244,10 +1295,12 @@ PlotError plot_show(Plot* plot) {
                     break;
                 }
                 series->y_data = series->diffusion_data->M_voltage->data; // Update the y_data. In principle x_data will be static.
-                if(series->data_length != series->diffusion_data->M_voltage->size){
+                
+                if(series->data_length != (series->diffusion_data->M_voltage->rows) * (series->diffusion_data->M_voltage->cols)){
                     printf("Error: data length mismatch for series %d\n", s);
                     break;
                 }
+                
             }
 
             // Set the drawing color
@@ -1255,6 +1308,9 @@ PlotError plot_show(Plot* plot) {
             
             // Draw based on plot type
             switch (series->plot_type) {
+                case PLOT_HEATMAP:
+                    draw_heatmap(renderer, plot, series);
+                    break;
                 case PLOT_BAR:
                     draw_bar_plot(renderer, plot, series);
                     break;

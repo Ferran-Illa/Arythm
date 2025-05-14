@@ -357,18 +357,17 @@ int main(int argc, char *argv[])
     if(input.plot_1D){
         // Initialization
         // What was once an array is now a "matrix", three vectors.
-        int rows = input.tissue_size[0];
-        int cols = input.tissue_size[1];
+        int cols = input.tissue_size[0];
 
         double time = 0.0;
 
-        Vector M_voltage = create_vector(input.tissue_size[0]); 
-        Vector M_vgate   = create_vector(input.tissue_size[0]);
-        Vector M_wgate   = create_vector(input.tissue_size[0]);
-        Vector M_pos     = create_vector(input.tissue_size[0]); // Index vector for the cells
+        Matrix M_voltage = create_matrix(1, cols); 
+        Matrix M_vgate   = create_matrix(1, cols);
+        Matrix M_wgate   = create_matrix(1, cols);
+        Matrix M_pos     = create_matrix(1, cols); // Index vector for the cells
 
         // Set the initial conditions for each grid point
-        for(int i = 0; i < input.tissue_size[0]; i++){
+        for(int i = 0; i < cols; i++){
             M_voltage.data[i] = input.initial_y[0];
             M_vgate.data[i]   = input.initial_y[1];
             M_wgate.data[i]   = input.initial_y[2];
@@ -377,8 +376,6 @@ int main(int argc, char *argv[])
 
         // Time Evolution
         DiffusionData diffusion_config = {
-            .rows = rows,
-            .cols = cols,
             .time = time,
             .M_voltage = &M_voltage,
             .M_vgate   = &M_vgate,
@@ -396,7 +393,16 @@ int main(int argc, char *argv[])
         strcpy(diffusion_plot.y_label, "Voltage (V)");
 
         // Add series to the plot
-        plot_add_series(&diffusion_plot, &M_pos, &M_voltage, "Diffusion in 1D", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_CIRCLE, 1, 2, PLOT_LINE);
+        Vector M_voltage_vec;
+        Vector M_pos_vec;
+
+        M_voltage_vec.data = M_voltage.data; // Read M_voltage linearly
+        M_voltage_vec.size = M_voltage.cols*M_voltage.rows; // Number of elements in the matrix
+
+        M_pos_vec.data = M_pos.data; // Read M_pos linearly
+        M_pos_vec.size = M_pos.cols*M_pos.rows; // Number of elements in the matrix
+
+        plot_add_series(&diffusion_plot, &M_pos_vec, &M_voltage_vec, "Diffusion in 1D", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_CIRCLE, 1, 2, PLOT_LINE);
         plot_config_video(&diffusion_plot, true, diffusion1D, &diffusion_config, &ode_input, input.frame_speed); // Dynamic plot
 
         PlotError error = plot_show(&diffusion_plot);
@@ -407,24 +413,61 @@ int main(int argc, char *argv[])
 
         // Clean up
         plot_cleanup(&diffusion_plot);
-        /*
-        int speed = 10;
-        for( int f = 0; f < input.frames; f++ ){
-
-            diffusion1D(ode_input, diffusion_config); // Diffusion step
-            diffusion_config.time += ode_input.step_size;
-            
-            if(speed == 10){
-                // Plot current frame
-            }
-            speed += 1;
-        }
-        */
     }
 
     // Plot the 2D bifurcation diagram
     if(input.plot_2D){
-        printf("Work In Progress");
+        // Initialization
+        // What was once an array is now a "matrix", three vectors.
+        int cols = input.tissue_size[0];
+        int rows = input.tissue_size[1];
+
+        double time = 0.0;
+
+        Matrix M_voltage = create_matrix(rows, cols); 
+        Matrix M_vgate   = create_matrix(rows, cols);
+        Matrix M_wgate   = create_matrix(rows, cols);
+        Matrix M_pos     = create_matrix(rows, cols); // Index vector for the cells
+
+        // Set the initial conditions for each grid point
+        for(int i = 0; i < cols*rows; i++){
+            M_voltage.data[i] = input.initial_y[0];
+            M_vgate.data[i]   = input.initial_y[1];
+            M_wgate.data[i]   = input.initial_y[2];
+        }
+
+        // Time Evolution
+        DiffusionData diffusion_config = {
+            .time = time,
+            .M_voltage = &M_voltage,
+            .M_vgate   = &M_vgate,
+            .M_wgate   = &M_wgate,
+            .diffusion = input.diffusion,
+            .cell_size = input.cell_size,
+            .excited_cells = input.excited_cells[0]
+        };
+
+        Plot diffusion_plot;
+        plot_init(&diffusion_plot); // Initialize the plot
+
+        strcpy(diffusion_plot.title, "Diffusion 2D");
+        strcpy(diffusion_plot.x_label, "Cells (x)");
+        strcpy(diffusion_plot.y_label, "Cells (y)");
+
+        // Dummy Vectors for the plot series
+        Vector M_dummy = read_matrix_row(&M_pos, 0); // Read the first row of M_pos as a vectorr
+
+        plot_add_series(&diffusion_plot, &M_dummy, &M_dummy, "Diffusion in 2D", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_NONE, 1, 2, PLOT_HEATMAP);
+        plot_config_video(&diffusion_plot, true, diffusion1D, &diffusion_config, &ode_input, input.frame_speed); // Dynamic plot
+
+        PlotError error = plot_show(&diffusion_plot);
+        if (error != PLOT_SUCCESS) {
+            fprintf(stderr, "Error showing plot: %d\n", error);
+        return -1;
+        }
+
+        // Clean up
+        plot_cleanup(&diffusion_plot);
     }
     return 0;
 

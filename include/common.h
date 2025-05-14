@@ -56,18 +56,16 @@ typedef struct{
 } OdeFunctionParams;
 
 typedef struct {
-    int rows;
-    int cols;
     double time;
-    Vector *M_voltage;
-    Vector *M_vgate;
-    Vector *M_wgate;
+    Matrix *M_voltage;
+    Matrix *M_vgate;
+    Matrix *M_wgate;
     double diffusion;
     double cell_size;
     int excited_cells;
 } DiffusionData;
 
-#define MAT(m, i, j) ((m).data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
+#define MAT(m, i, j) ((m).data[(i) * ((m).cols) + (j)]) // Access element at (i, j), zero-indexed!!
 #define VEC(v, i) ((v).data[i]) // Access element at i, zero-indexed!!
 
 typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param, double *excitation_control, bool no_excitation); // Ensure ODEFunction matches ODE_func signature
