@@ -21,6 +21,16 @@ Matrix create_matrix(int rows, int cols) {
     return mat;
 }
 
+Matrix copy_matrix(const Matrix *src) {
+    Matrix dest = create_matrix(src->rows, src->cols);
+    for (int i = 0; i < src->rows; i++) {
+        for (int j = 0; j < src->cols; j++) {
+            MAT(dest, i, j) = MAT(*src, i, j);
+        }
+    }
+    return dest;
+}
+
 void free_vector(Vector *vec) {
     free(vec->data);
     vec->data = NULL;

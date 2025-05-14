@@ -190,8 +190,8 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> step_size = 0.05;
     input -> num_steps = 30000;
     input -> num_points = 100;
-    input -> tissue_size[0] = 1000;
-    input -> tissue_size[1] = 1000;
+    input -> tissue_size[0] = 300;
+    input -> tissue_size[1] = 300;
     input -> excited_cells[0] = 20;
     input -> excited_cells[1] = 10;
     
@@ -427,7 +427,6 @@ int main(int argc, char *argv[])
         Matrix M_voltage = create_matrix(rows, cols); 
         Matrix M_vgate   = create_matrix(rows, cols);
         Matrix M_wgate   = create_matrix(rows, cols);
-        Matrix M_pos     = create_matrix(rows, cols); // Index vector for the cells
 
         // Set the initial conditions for each grid point
         for(int i = 0; i < cols*rows; i++){
@@ -455,10 +454,10 @@ int main(int argc, char *argv[])
         strcpy(diffusion_plot.y_label, "Cells (y)");
 
         // Dummy Vectors for the plot series
-        Vector M_dummy = read_matrix_row(&M_pos, 0); // Read the first row of M_pos as a vectorr
+        Vector M_dummy = read_matrix_row(&M_wgate, 0); // Read the first row of M_wgate as a vector
 
         plot_add_series(&diffusion_plot, &M_dummy, &M_dummy, "Diffusion in 2D", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_NONE, 1, 2, PLOT_HEATMAP);
-        plot_config_video(&diffusion_plot, true, diffusion1D, &diffusion_config, &ode_input, input.frame_speed); // Dynamic plot
+        plot_config_video(&diffusion_plot, true, diffusion2D, &diffusion_config, &ode_input, input.frame_speed); // Dynamic plot
 
         PlotError error = plot_show(&diffusion_plot);
         if (error != PLOT_SUCCESS) {

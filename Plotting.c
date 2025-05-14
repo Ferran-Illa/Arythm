@@ -1031,14 +1031,8 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
     int cols = heatmap_data->cols;
 
     // Calculate the width and height of each cell
-    int cell_width = (int)plot->plot_area.width / cols;
-    int cell_height = (int)plot->plot_area.height / rows;
-
-    if(cell_width < 1 || cell_height < 1) {
-        cell_width = 1; // Avoid division by zero
-        cell_height = 1; // Avoid division by zero
-        printf("Warning: Cell size is too small, setting to minimum size of 1x1.\n");
-    }
+    double cell_width = (double)plot->plot_area.width / cols;
+    double cell_height = (double)plot->plot_area.height / rows;
 
     // Iterate through the grid and draw each cell
     for (int row = 0; row < rows; row++) {
@@ -1053,14 +1047,32 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
             Uint8 a = 255;
 
             // Calculate the position and size of the cell
-            int x = plot->plot_area.x + col * cell_width;
-            int y = plot->plot_area.y + row * cell_height;
+            double x = plot->plot_area.x + col * cell_width;
+            double y = plot->plot_area.y + row * cell_height;
 
             // Draw the cell
             SDL_SetRenderDrawColor(renderer, r, g, b, a);
-            
-            SDL_Rect cell_rect = {x, y, cell_width, cell_height};
-            SDL_RenderFillRect(renderer, &cell_rect);
+
+            if(cell_height > 1 && cell_width > 1){
+
+                SDL_FRect cell_rect = {x, y, cell_width, cell_height};
+                SDL_RenderFillRectF(renderer, &cell_rect);
+
+            } else if(cell_height <=1 && cell_width <=1){
+
+                SDL_RenderDrawPointF(renderer, x, y);
+
+            } else if(cell_height <= 1 && cell_width > 1){
+
+                SDL_RenderDrawLineF(renderer, x, y, x + cell_width, y);
+
+            } else if(cell_width <= 1 && cell_height > 1){
+
+                SDL_RenderDrawLineF(renderer, x, y, x, y + cell_height);
+
+            } else {
+                printf("Error: Invalid Cell Size\n");
+            }
         }
     }
 }
@@ -1295,7 +1307,8 @@ PlotError plot_show(Plot* plot) {
                     break;
                 }
                 series->y_data = series->diffusion_data->M_voltage->data; // Update the y_data. In principle x_data will be static.
-                
+                series->data_length = series->diffusion_data->M_voltage->rows * series->diffusion_data->M_voltage->cols;
+
                 if(series->data_length != (series->diffusion_data->M_voltage->rows) * (series->diffusion_data->M_voltage->cols)){
                     printf("Error: data length mismatch for series %d\n", s);
                     break;
