@@ -1041,10 +1041,10 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
             double value = MAT(*heatmap_data, row, col);
 
             // Map the value to a color (e.g., using a gradient)
-            Uint8 r = (Uint8)(255 * value);
-            Uint8 g = (Uint8)(255 * (1 - value));
-            Uint8 b = 128;
-            Uint8 a = 255;
+            Uint8 r = (Uint8)(255 * value);          // Red increases with value
+            Uint8 g = (Uint8)(255 * (1 - fabs(value - 0.5) * 2)); // Green peaks at value = 0.5
+            Uint8 b = (Uint8)(255 * (1 - value));    // Blue decreases with value
+            Uint8 a = 255;                           // Alpha remains constant
 
             // Calculate the position and size of the cell
             double x = plot->plot_area.x + col * cell_width;

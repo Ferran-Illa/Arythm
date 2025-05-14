@@ -190,10 +190,10 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> step_size = 0.05;
     input -> num_steps = 30000;
     input -> num_points = 100;
-    input -> tissue_size[0] = 300;
-    input -> tissue_size[1] = 300;
-    input -> excited_cells[0] = 20;
-    input -> excited_cells[1] = 10;
+    input -> tissue_size[0] = 30;
+    input -> tissue_size[1] = 30;
+    input -> excited_cells[0] = 2;
+    input -> excited_cells[1] = 2;
     
     input -> plot_bifurcation_diagram = false;
     input -> plot_singlecell_potential = false;
@@ -201,7 +201,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> plot_2D = false;
 
     input -> initial_t = 0.0;
-    input -> frame_speed = 30;
+    input -> frame_speed = 1;
 
     input -> initial_y[0] = 0.0;
     input -> initial_y[1] = 0.9;
@@ -213,15 +213,15 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
     // Default excitation and bifurcation parameters
     input -> excitation[0] = 2.5;
-    input -> excitation[1] = 250;
+    input -> excitation[1] = 500;
     input -> excitation[2] = 300;
 
     input -> bifurcation[0] = 2.55;
     input -> bifurcation[1] = 120;
     input -> bifurcation[2] = 350;
 
-    input -> diffusion = 1;
-    input -> cell_size = 1;
+    input -> diffusion = .1;
+    input -> cell_size = 2.5;
 
     // Parse command-line arguments
     for (int i = 1; i < argc; i++) {
@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
             .M_wgate   = &M_wgate,
             .diffusion = input.diffusion,
             .cell_size = input.cell_size,
-            .excited_cells = input.excited_cells[0]
+            .excited_cells = {input.excited_cells[0], input.excited_cells[1]}
         };
 
         Plot diffusion_plot;
@@ -443,7 +443,7 @@ int main(int argc, char *argv[])
             .M_wgate   = &M_wgate,
             .diffusion = input.diffusion,
             .cell_size = input.cell_size,
-            .excited_cells = input.excited_cells[0]
+            .excited_cells = {input.excited_cells[0], input.excited_cells[1]}
         };
 
         Plot diffusion_plot;

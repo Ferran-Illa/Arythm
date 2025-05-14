@@ -62,7 +62,7 @@ typedef struct {
     Matrix *M_wgate;
     double diffusion;
     double cell_size;
-    int excited_cells;
+    int excited_cells[2];
 } DiffusionData;
 
 #define MAT(m, i, j) ((m).data[(i) * ((m).cols) + (j)]) // Access element at (i, j), zero-indexed!!
