@@ -1243,6 +1243,11 @@ PlotError plot_show(Plot* plot) {
                     printf("Error generating data for series %d\n", s);
                     break;
                 }
+                series->y_data = series->diffusion_data->M_voltage->data; // Update the y_data. In principle x_data will be static.
+                if(series->data_length != series->diffusion_data->M_voltage->size){
+                    printf("Error: data length mismatch for series %d\n", s);
+                    break;
+                }
             }
 
             // Set the drawing color

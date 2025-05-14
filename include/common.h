@@ -31,7 +31,7 @@ typedef struct {
     bool plot_2D;
 
     int num_steps;
-    int frames;
+    int frame_speed;
     int tissue_size[2];
     int excited_cells[2];
 
@@ -70,7 +70,7 @@ typedef struct {
 #define MAT(m, i, j) ((m).data[(i) * (m.cols) + (j)]) // Access element at (i, j), zero-indexed!!
 #define VEC(v, i) ((v).data[i]) // Access element at i, zero-indexed!!
 
-typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param, double *excitation_control); // Ensure ODEFunction matches ODE_func signature
+typedef void (*ODEFunction)(double t, double *y, double *dydt, double *param, double *excitation_control, bool no_excitation); // Ensure ODEFunction matches ODE_func signature
 // Represents a function for solving ordinary differential equations (ODEs),
 // where 't' is the independent variable (time) and 'y' is the dependent variable.
 

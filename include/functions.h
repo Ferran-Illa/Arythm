@@ -13,9 +13,9 @@
     #endif // ALGEBRA_H
 
     #ifndef ODE_H
-        extern void ODE_func(double t, double *y, double *dydt, double *function_param, double *ode_param);
+        extern void ODE_func(double t, double *y, double *dydt, double *function_param, double *ode_param, bool no_excitation);
         extern Matrix euler_integration_multidimensional(ODEFunction ode_func, OdeFunctionParams ode_settings);
-        extern void diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data);    
+        extern int diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int frames);    
     #endif // ODE_H 
 
 #endif // FUNCTIONS_H

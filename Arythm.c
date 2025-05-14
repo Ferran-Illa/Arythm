@@ -41,24 +41,24 @@ Vector find_values(const Vector time_t , const Vector y_t, int num_excitations, 
 void help_display() {
     printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
-    printf("  -bif                   Plot the bifurcation diagram.\n");
+    printf("  -bif                      Plot the bifurcation diagram.\n");
     printf("  -bif_set <T_exc> <T_tot_min> <T_tot_max> Specify bifurcation parameters (default: 1, 300, 400).\n");
-    printf("  -cellsz <cell_size>   Specify the cell size (default: 1).\n");
-    printf("  -diff <diffusion>     Specify the diffusion coefficient (default: 1).\n");
-    printf("  -exc <exc_time> <T_tot> Specify the excitation parameters (default: 1, 300).\n");
-    printf("  -ex_cell <x> <y>     Specify the excited cells (default: 20, 20).\n");
-    printf("  -frame <num_frames>     Specify the number of frames for the 1D plot (default: 10000).\n");
-    printf("  -h, -help              Display this help message and exit.\n");
-    printf("  -npt <num_points>      Specify the number of points for the bifurcation diagram (default: 100).\n");
-    printf("  -nstp <num_steps>      Specify the number of steps for the ODE solver (default: 30000).\n");    
-    printf("  -param <p1> ... <p14>  Specify the 14 parameters for the ODE system (default: predefined values).\n");
-    printf("  -stp <step_size>       Specify the step size for the ODE solver (default: 0.05).\n");
-    printf("  -t <initial_t>         Specify the initial time value (default: 0.0).\n");
-    printf("  -tissue <x> <y>       Specify the tissue size (default: 100, 100).\n");
-    printf("  -vcell                 Plot the single cell potential.\n");
-    printf("  -y <V> <v> <w>         Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
-    printf("  -1D                   Plot the 1D bifurcation diagram.\n");
-    printf("  -2D                   Plot the 2D bifurcation diagram.\n");
+    printf("  -cellsz <cell_size>       Specify the cell size (default: 1).\n");
+    printf("  -diff <diffusion>         Specify the diffusion coefficient (default: 1).\n");
+    printf("  -exc <exc_time> <T_tot>   Specify the excitation parameters (default: 1, 300).\n");
+    printf("  -ex_cell <x> <y>          Specify the excited cells (default: 20, 20).\n");
+    printf("  -speed <num_frames>       Specify the number of iterations per frame for the 1D plot (default: 5).\n");
+    printf("  -h, -help                 Display this help message and exit.\n");
+    printf("  -npt <num_points>         Specify the number of points for the bifurcation diagram (default: 100).\n");
+    printf("  -nstp <num_steps>         Specify the number of steps for the ODE solver (default: 30000).\n");    
+    printf("  -param <p1> ... <p14>     Specify the 14 parameters for the ODE system (default: predefined values).\n");
+    printf("  -stp <step_size>          Specify the step size for the ODE solver (default: 0.05).\n");
+    printf("  -t <initial_t>            Specify the initial time value (default: 0.0).\n");
+    printf("  -tissue <x> <y>           Specify the tissue size (default: 100, 100).\n");
+    printf("  -vcell                    Plot the single cell potential.\n");
+    printf("  -y <V> <v> <w>            Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
+    printf("  -1D                       Plot the 1D bifurcation diagram.\n");
+    printf("  -2D                       Plot the 2D bifurcation diagram.\n");
     
     
     printf("\nExamples (default):\n");
@@ -185,21 +185,6 @@ void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParam
     single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
 }
 
-int diffusion_1D_video(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int frames) {
-    // Extract parameters from the input structure
-    if(frames <= 0) {
-        printf("ERROR: The number of frames must be positive.\n");
-        return -1;
-    }
-    
-    for(int f = 0; f < frames; f++){
-        diffusion1D(ode_input, diffusion_data); // Diffusion step //TODO: This doesn't do anything! Pass the pointer
-        diffusion_data->time += ode_input->step_size;
-    }
-
-    return 0;
-}
-
 void parse_input(int argc, char *argv[], InputParams *input) {
     // Default values
     input -> step_size = 0.05;
@@ -207,8 +192,8 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> num_points = 100;
     input -> tissue_size[0] = 100;
     input -> tissue_size[1] = 100;
-    input -> excited_cells[0] = 20;
-    input -> excited_cells[1] = 20;
+    input -> excited_cells[0] = 10;
+    input -> excited_cells[1] = 10;
     
     input -> plot_bifurcation_diagram = false;
     input -> plot_singlecell_potential = false;
@@ -216,7 +201,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> plot_2D = false;
 
     input -> initial_t = 0.0;
-    input -> frames = 10000;
+    input -> frame_speed = 5;
 
     input -> initial_y[0] = 0.0;
     input -> initial_y[1] = 0.9;
@@ -227,7 +212,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     memcpy(input->param, default_param, sizeof(default_param));
 
     // Default excitation and bifurcation parameters
-    input -> excitation[0] = 2.5;
+    input -> excitation[0] = 2;
     input -> excitation[1] = 200;
     input -> excitation[2] = 300;
 
@@ -307,9 +292,9 @@ void parse_input(int argc, char *argv[], InputParams *input) {
                 input->tissue_size[j] = atof(argv[++i]);
             }
             
-        } else if (strcmp(argv[i], "-frames") == 0 && i + 1 < argc){
+        } else if (strcmp(argv[i], "-speed") == 0 && i + 1 < argc){
 
-            input->frames = atof(argv[++i]);
+            input->frame_speed = atof(argv[++i]);
             
         } else if (strcmp(argv[i], "-cellsz") == 0 && i + 1 < argc){
 
@@ -403,21 +388,16 @@ int main(int argc, char *argv[])
             .excited_cells = input.excited_cells[0]
         };
 
-        diffusion_1D_video(&ode_input, &diffusion_config, 1); // Call the diffusion function for the first frame.
-
-        Plot frametest;
-        single_plot(&frametest, &M_pos, &M_voltage, "Diffusion 1D Frame 1", "Time (s)", "Voltage (V)", PLOT_LINE); // Plot the first frame
-
         Plot diffusion_plot;
         plot_init(&diffusion_plot); // Initialize the plot
 
         strcpy(diffusion_plot.title, "Diffusion 1D");
-        strcpy(diffusion_plot.x_label, "Time (s)");
+        strcpy(diffusion_plot.x_label, "Distance (x)");
         strcpy(diffusion_plot.y_label, "Voltage (V)");
 
         // Add series to the plot
-        plot_add_series(&diffusion_plot, &M_pos, &M_voltage, "Voltage", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_NONE, 1, 2, PLOT_LINE);
-        plot_config_video(&diffusion_plot, true, diffusion_1D_video, &diffusion_config, &ode_input, 30); // Dynamic plot
+        plot_add_series(&diffusion_plot, &M_pos, &M_voltage, "Diffusion in 1D", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_CIRCLE, 1, 2, PLOT_LINE);
+        plot_config_video(&diffusion_plot, true, diffusion1D, &diffusion_config, &ode_input, input.frame_speed); // Dynamic plot
 
         PlotError error = plot_show(&diffusion_plot);
         if (error != PLOT_SUCCESS) {
