@@ -135,15 +135,15 @@ int diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
 
     for(int f = 0; f < frames; f++){
         
-        double Prev_Voltage = VEC(*M_voltage, rows-2); // Periodic boundary condition, before (i = 0) = (i = rows-1) comes i = rows-2 (the last cell)
+        double Prev_Voltage = VEC(*M_voltage, 0); // Periodic boundary condition, before i = 1 comes (i = 0) (the first cell)
         time_copy = diffusion_data->time; // Update the time for the ODE function
 
-        for (int i = 0; i < rows-1; i++) {
+        for (int i = 1; i < rows-1; i++) {
         
             double y[3] = {VEC(*M_voltage, i), VEC(*M_vgate, i), VEC(*M_wgate, i)}; // Casting to fit required type for Ode_func
             double dydt[3]; // Derivatives
             
-            if(i < excited_cells && (time_copy <= ode_input->excitation[0]) ){
+            if(i < excited_cells){ // && (time_copy <= ode_input->excitation[0]) ){
                 no_excitation = false; // Cells to be excited once
             }
             else{
@@ -160,10 +160,14 @@ int diffusion1D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
             M_wgate     -> data[i] += dydt[2] * ode_input->step_size; // Update wgate
 
         }
-        // Fulfill the non-flux (neumann's boundary condition) at the edges of the grid
-        M_voltage   -> data[rows-1] = M_voltage -> data[0]; // Periodic boundary condition
-        M_vgate     -> data[rows-1] = M_vgate   -> data[0]; // Update vgate
-        M_wgate     -> data[rows-1] = M_wgate   -> data[0]; // Update wgate
+        // Fulfill the non-flux boundary conditions at the edges of the grid
+        M_voltage   -> data[rows-1] = M_voltage -> data[rows-2]; // Periodic boundary condition
+        M_vgate     -> data[rows-1] = M_vgate   -> data[rows-2]; // Update vgate
+        M_wgate     -> data[rows-1] = M_wgate   -> data[rows-2]; // Update wgate
+
+        M_voltage   -> data[0]     = M_voltage -> data[1]; // Periodic boundary condition
+        M_vgate     -> data[0]     = M_vgate   -> data[1]; // Update vgate
+        M_wgate     -> data[0]     = M_wgate   -> data[1]; // Update wgate
         
         diffusion_data->time += ode_input->step_size;
     }

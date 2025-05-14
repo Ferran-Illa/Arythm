@@ -190,9 +190,9 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> step_size = 0.05;
     input -> num_steps = 30000;
     input -> num_points = 100;
-    input -> tissue_size[0] = 100;
-    input -> tissue_size[1] = 100;
-    input -> excited_cells[0] = 10;
+    input -> tissue_size[0] = 1000;
+    input -> tissue_size[1] = 1000;
+    input -> excited_cells[0] = 20;
     input -> excited_cells[1] = 10;
     
     input -> plot_bifurcation_diagram = false;
@@ -201,7 +201,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> plot_2D = false;
 
     input -> initial_t = 0.0;
-    input -> frame_speed = 5;
+    input -> frame_speed = 30;
 
     input -> initial_y[0] = 0.0;
     input -> initial_y[1] = 0.9;
@@ -212,8 +212,8 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     memcpy(input->param, default_param, sizeof(default_param));
 
     // Default excitation and bifurcation parameters
-    input -> excitation[0] = 2;
-    input -> excitation[1] = 200;
+    input -> excitation[0] = 2.5;
+    input -> excitation[1] = 250;
     input -> excitation[2] = 300;
 
     input -> bifurcation[0] = 2.55;
