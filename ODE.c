@@ -193,8 +193,11 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
     Matrix *M_wgate     = diffusion_data -> M_wgate;
     double diffusion    = diffusion_data -> diffusion;
     double cell_size    = diffusion_data -> cell_size;
-    int excited_cells_x = diffusion_data -> excited_cells[0];
-    int excited_cells_y = diffusion_data -> excited_cells[1];
+    int x_off           = diffusion_data -> excited_cells_pos[0]; // Offset for the x coordinate
+    int y_off           = diffusion_data -> excited_cells_pos[1]; // Offset for the y coordinate
+    int exc_max_x = diffusion_data -> excited_cells[0] + x_off; // Maximum x coordinate for excited cells
+    int exc_max_y = diffusion_data -> excited_cells[1] + y_off; // Maximum y coordinate for excited cells
+
 
     bool no_excitation = true; // Flag to control excitation, avoid excitations by default
     
@@ -209,7 +212,7 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
                 double y[3] = {MAT(voltage_copy, i, j), MAT(*M_vgate, i, j), MAT(*M_wgate, i, j)};
                 double dydt[3]; // Derivatives
 
-                if (i < excited_cells_y && j < excited_cells_x) { // Excitation condition
+                if (i < exc_max_y && j < exc_max_x && y_off < i && x_off < j) { // Excitation condition
                     no_excitation = false; // Cells to be excited once
                 } else {
                     no_excitation = true; // Cells not to be excited

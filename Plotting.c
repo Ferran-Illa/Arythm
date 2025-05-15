@@ -1034,19 +1034,31 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
     int rows = heatmap_data->rows;
     int cols = heatmap_data->cols;
 
+    int x0 = plot->plot_area.x;
+    int y0 = plot->plot_area.y;
+    int w = plot->plot_area.width;
+    int h = plot->plot_area.height;
+
     // Calculate the width and height of each cell
     double cell_width = (double)plot->plot_area.width / cols;
     double cell_height = (double)plot->plot_area.height / rows;
 
     // Iterate through the grid and draw each cell
     for (int row = 0; row < rows; row++) {
+        int y_start = y0 + (row * h) / rows;
+        int y_end = y0 + ((row + 1) * h) / rows;
+        
         for (int col = 0; col < cols; col++) {
+            
             // Calculate the data value for this cell
-            double value = MAT(*heatmap_data, row, col);
+            int x_start = x0 + (col * w) / cols;
+            int x_end = x0 + ((col + 1) * w) / cols;
+            
 
             // Map the value to a color (e.g., using a gradient)
             // This does not affect the solution of the equation, just the color map.
             // Although the voltage should not exceed 1, it can, so we should visualize a strong red when that happens.
+            double value = MAT(*heatmap_data, row, col);
             if(value > 1.5){ // Clamp to 1
                 value = 1;
             } else if(value < 0){ // Clamp to 0
@@ -1060,12 +1072,21 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
             Uint8 a = 255;                           // Alpha remains constant
 
             // Calculate the position and size of the cell
-            double x = plot->plot_area.x + col * cell_width;
-            double y = plot->plot_area.y + row * cell_height;
+            //double x = plot->plot_area.x + col * cell_width;
+            //double y = plot->plot_area.y + row * cell_height;
 
             // Draw the cell
             SDL_SetRenderDrawColor(renderer, r, g, b, a);
-
+            int cell_w = x_end - x_start;
+            int cell_h = y_end - y_start;
+            
+            if (cell_w > 0 && cell_h > 0) {
+                SDL_Rect cell_rect = {x_start, y_start, cell_w, cell_h};
+                SDL_RenderFillRect(renderer, &cell_rect);
+            } else {
+                SDL_RenderDrawPoint(renderer, x_start, y_start);
+            }
+            /*
             if(cell_height > 1 && cell_width > 1){
 
                 SDL_FRect cell_rect = {x, y, cell_width, cell_height};
@@ -1086,6 +1107,7 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
             } else {
                 printf("Error: Invalid Cell Size\n");
             }
+                */
         }
     }
 }

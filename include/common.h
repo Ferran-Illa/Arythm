@@ -34,6 +34,7 @@ typedef struct {
     int frame_speed;
     int tissue_size[2];
     int excited_cells[2];
+    int excited_cells_pos[2];
 
     double step_size;
     double num_points;
@@ -63,6 +64,7 @@ typedef struct {
     double diffusion;
     double cell_size;
     int excited_cells[2];
+    int excited_cells_pos[2];
 } DiffusionData;
 
 #define MAT(m, i, j) ((m).data[(i) * ((m).cols) + (j)]) // Access element at (i, j), zero-indexed!!

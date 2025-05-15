@@ -47,6 +47,7 @@ void help_display() {
     printf("  -diff <diffusion>         Specify the diffusion coefficient (default: 1).\n");
     printf("  -exc <exc_time> <T_tot>   Specify the excitation parameters (default: 1, 300).\n");
     printf("  -ex_cell <x> <y>          Specify the excited cells (default: 20, 20).\n");
+    printf("  -ex_off <x> <y>         Specify the offset for the excited cells (default: 0, 0).\n");
     printf("  -speed <num_frames>       Specify the number of iterations per frame for the 1D plot (default: 5).\n");
     printf("  -h, -help                 Display this help message and exit.\n");
     printf("  -npt <num_points>         Specify the number of points for the bifurcation diagram (default: 100).\n");
@@ -192,8 +193,11 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> num_points = 100;
     input -> tissue_size[0] = 150;
     input -> tissue_size[1] = 150;
-    input -> excited_cells[0] = 70;
-    input -> excited_cells[1] = 4;
+
+    input -> excited_cells[0] = 100;
+    input -> excited_cells[1] = 5;
+    input -> excited_cells_pos[0] = 0;
+    input -> excited_cells_pos[1] = 0;
     
     input -> plot_bifurcation_diagram = false;
     input -> plot_singlecell_potential = false;
@@ -212,7 +216,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     memcpy(input->param, default_param, sizeof(default_param));
 
     // Default excitation and bifurcation parameters
-    input -> excitation[0] = 2.4;
+    input -> excitation[0] = 2.5;
     input -> excitation[1] = 250;
     input -> excitation[2] = 300;
 
@@ -308,6 +312,12 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
             for (int j = 0; j < 2; j++) {
                 input->excited_cells[j] = atof(argv[++i]);
+            }
+            
+        } else if (strcmp(argv[i], "-ex_off") == 0 && i + 2 < argc){
+
+            for (int j = 0; j < 2; j++) {
+                input->excited_cells_pos[j] = atof(argv[++i]);
             }
             
         } else {
@@ -443,7 +453,8 @@ int main(int argc, char *argv[])
             .M_wgate   = &M_wgate,
             .diffusion = input.diffusion,
             .cell_size = input.cell_size,
-            .excited_cells = {input.excited_cells[0], input.excited_cells[1]}
+            .excited_cells = {input.excited_cells[0], input.excited_cells[1]},
+            .excited_cells_pos = {input.excited_cells_pos[0], input.excited_cells_pos[1]}
         };
 
         Plot diffusion_plot;
