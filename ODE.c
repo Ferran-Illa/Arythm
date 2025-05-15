@@ -234,9 +234,9 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
                 double bottom_right = MAT(voltage_copy, i + 1, j + 1);
 
                 // Weighted sum for the 9-point Laplacian
-                laplacian = (4 * MAT(voltage_copy, i, j) +
+                laplacian = (-12 * MAT(voltage_copy, i, j) +
                              2 * (top + bottom + left + right) +
-                             (top_left + top_right + bottom_left + bottom_right)) / (6 * pow(cell_size, 2));
+                             (top_left + top_right + bottom_left + bottom_right)) / (12 * pow(cell_size, 2));
 
 
                 // Add the diffusion term to the voltage derivative
@@ -260,27 +260,10 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
             }
         }
 
-        // Update the edges of the grid
+        // Update the edges of the grid, no need to change the gates.
         for (int j = 1; j < cols-1; j++) {
             // Fulfill the non-flux boundary conditions at the edges of the grid
-            double dydt[3]; // Derivatives
-            
-            // Update the gates
-            double y[3] = {MAT(voltage_copy, 0, j), MAT(*M_vgate, 0, j), MAT(*M_wgate, 0, j)};
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
 
-            MAT(*M_vgate, 0, j)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, 0, j)     += dydt[2] * ode_input->step_size;
-
-            y[0] = MAT(voltage_copy, rows-1, j);
-            y[1] = MAT(*M_vgate, rows-1, j);
-            y[2] = MAT(*M_wgate, rows-1, j);
-
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, rows-1, j)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, rows-1, j)     += dydt[2] * ode_input->step_size;
-            
             // Update the voltage
             MAT(*M_voltage, 0, j)    = MAT(*M_voltage, 1, j); // Top edge
             MAT(*M_voltage, rows-1, j) = MAT(*M_voltage, rows-2, j); // Bottom edge
@@ -288,72 +271,18 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
 
         for (int i = 1; i < rows-1; i++) {
             // Fulfill the non-flux boundary conditions at the edges of the grid
-            double dydt[3]; // Derivatives
-            
-            // Update the gates
-            double y[3] = {MAT(voltage_copy, i, 0), MAT(*M_vgate, i, 0), MAT(*M_wgate, i, 0)};
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, i, 0)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, i, 0)     += dydt[2] * ode_input->step_size;
-
-            y[0] = MAT(voltage_copy, i, cols-1);
-            y[1] = MAT(*M_vgate, i, cols-1);
-            y[2] = MAT(*M_wgate, i, cols-1);
-
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, i, cols-1)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, i, cols-1)     += dydt[2] * ode_input->step_size;
-            
+        
             // Update the voltage
             MAT(*M_voltage, i, 0)     = MAT(*M_voltage, i, 1); // Left edge
             MAT(*M_voltage, i, cols-1) = MAT(*M_voltage, i, cols-2); // Right edge
         }
 
-        double dydt[3]; // Derivatives
-        double y[3];
         // Handle the corners for non-flux boundary conditions
         MAT(*M_voltage, 0, 0) = MAT(*M_voltage, 1, 1); // Top-left corner
-
-            y[0] = MAT(voltage_copy, 0, 0);
-            y[1] = MAT(*M_vgate, 0, 0);
-            y[2] = MAT(*M_wgate, 0, 0);
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, 0, 0)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, 0, 0)     += dydt[2] * ode_input->step_size;
-
         MAT(*M_voltage, 0, cols - 1) = MAT(*M_voltage, 1, cols - 2); // Top-right corner
-
-            y[0] = MAT(voltage_copy, 0, cols - 1);
-            y[1] = MAT(*M_vgate, 0, cols - 1);
-            y[2] = MAT(*M_wgate, 0, cols - 1);
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, 0, cols - 1)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, 0, cols - 1)     += dydt[2] * ode_input->step_size;
-
         MAT(*M_voltage, rows - 1, 0) = MAT(*M_voltage, rows - 2, 1); // Bottom-left corner
-
-            y[0] = MAT(voltage_copy, rows - 1, 0);
-            y[1] = MAT(*M_vgate, rows - 1, 0);
-            y[2] = MAT(*M_wgate, rows - 1, 0);
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, rows - 1, 0)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, rows - 1, 0)     += dydt[2] * ode_input->step_size;
-
         MAT(*M_voltage, rows - 1, cols - 1) = MAT(*M_voltage, rows - 2, cols - 2); // Bottom-right corner
-            
-            y[0] = MAT(voltage_copy, rows - 1, cols - 1);
-            y[1] = MAT(*M_vgate, rows - 1, cols - 1);
-            y[2] = MAT(*M_wgate, rows - 1, cols - 1);
-            ODE_func(time_copy, y, dydt, ode_input->param, ode_input->excitation, no_excitation); // Call the ODE function
-
-            MAT(*M_vgate, rows - 1, cols - 1)     += dydt[1] * ode_input->step_size;
-            MAT(*M_wgate, rows - 1, cols - 1)     += dydt[2] * ode_input->step_size;
-
+    
         // Update the time
         diffusion_data->time += ode_input->step_size;
 

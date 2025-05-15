@@ -150,6 +150,10 @@ PlotError plot_add_series(Plot* plot, Vector* x_vec, Vector* y_vec,
     series->frame_speed = 10;
     series->dynamic_plot = false;
     
+    if(plot_type == PLOT_HEATMAP) {
+        plot-> show_grid = false; // Set to false for heatmap
+        plot-> show_legend = false; // Set to false for heatmap
+    }
     plot->series_count++;
     
     return PLOT_SUCCESS;
@@ -1041,6 +1045,15 @@ void draw_heatmap(SDL_Renderer* renderer, Plot* plot, DataSeries* series) {
             double value = MAT(*heatmap_data, row, col);
 
             // Map the value to a color (e.g., using a gradient)
+            // This does not affect the solution of the equation, just the color map.
+            // Although the voltage should not exceed 1, it can, so we should visualize a strong red when that happens.
+            if(value > 1.5){ // Clamp to 1
+                value = 1;
+            } else if(value < 0){ // Clamp to 0
+                value = 0;
+            } else{
+                value = value / 1.5; 
+            } 
             Uint8 r = (Uint8)(255 * value);          // Red increases with value
             Uint8 g = (Uint8)(255 * (1 - fabs(value - 0.5) * 2)); // Green peaks at value = 0.5
             Uint8 b = (Uint8)(255 * (1 - value));    // Blue decreases with value
