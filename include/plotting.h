@@ -7,7 +7,7 @@
 #define DEFAULT_WINDOW_HEIGHT 600
 #define DEFAULT_MARGIN 70
 #define TICK_SIZE 5
-#define GRID_LINES 10
+#define GRID_LINES 11
 #define MAX_LABEL_LENGTH 64
 #define MAX_DATA_SERIES 10
 #define DEFAULT_FONT_SIZE 14
@@ -98,6 +98,9 @@ typedef struct {
     char y_label[MAX_LABEL_LENGTH];
     Range x_range;
     Range y_range;
+    double x_tick;
+    double y_tick;
+    bool use_ticks;
     DataSeries series[MAX_DATA_SERIES];
     int series_count;
     bool show_grid;

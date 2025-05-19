@@ -33,6 +33,7 @@ PlotError plot_init(Plot* plot) {
     plot->series_count = 0;
     plot->show_grid = true;
     plot->show_legend = true;
+    plot->use_ticks = false;
 
     plot->IsPaused = false; // Initialize non-paused state
     
@@ -234,6 +235,7 @@ void plot_auto_scale(Plot* plot) {
     }
     
     // Add margins
+    /*
     double x_margin = (x_max - x_min) * 0.05;
     double y_margin = (y_max - y_min) * 0.05;
     
@@ -255,6 +257,7 @@ void plot_auto_scale(Plot* plot) {
         plot->y_range.min = plot->y_range.max / 1000.0;
         if (plot->y_range.min <= 0) plot->y_range.min = 0.01;
     }
+    */
 }
 
 // Function to map a value from one range to another, considering scale type
@@ -1235,7 +1238,23 @@ PlotError plot_show(Plot* plot) {
         adjusted_x_max = x_range_center + x_range_half;
         adjusted_y_min = y_range_center - y_range_half;
         adjusted_y_max = y_range_center + y_range_half;
-        
+
+        // Set the axis tick spacing
+        int x_num_ticks = GRID_LINES;
+        int y_num_ticks = GRID_LINES;
+        int x_tick_spacing = (int)(plot->plot_area.width) / x_num_ticks;
+        int y_tick_spacing = (int)(plot->plot_area.height) / y_num_ticks;
+
+        if(plot->use_ticks){
+            x_tick_spacing = (int) map_value(plot->x_tick, 0, adjusted_x_max - adjusted_x_min, 0, plot->plot_area.width, plot->x_range.scale_type);
+            y_tick_spacing = (int) map_value(plot->y_tick, 0, adjusted_y_max - adjusted_y_min, 0, plot->plot_area.height, plot->y_range.scale_type);
+            x_num_ticks = (int) plot->plot_area.width / x_tick_spacing;
+            y_num_ticks = (int) plot->plot_area.height / y_tick_spacing;
+        } else{
+            plot->x_tick = (adjusted_x_max - adjusted_x_min) / x_num_ticks;
+            plot->y_tick = (adjusted_y_max - adjusted_y_min) / y_num_ticks;
+        }
+
         // Draw plot area border
         rectangleRGBA(renderer, 
                      plot->plot_area.x, plot->plot_area.y, 
@@ -1245,51 +1264,58 @@ PlotError plot_show(Plot* plot) {
         // Draw grid lines if enabled
         if (plot->show_grid) {
             // Vertical grid lines
-            for (int i = 1; i < GRID_LINES; i++) {
-                int x = plot->plot_area.x + (i * plot->plot_area.width) / GRID_LINES;
-                lineRGBA(renderer, x, plot->plot_area.y, x, plot->plot_area.y + plot->plot_area.height, 
-                        plot->grid_color.r, plot->grid_color.g, plot->grid_color.b, plot->grid_color.a);
+            for (int i = 0; i < x_num_ticks; i++) {
+                int x = plot->plot_area.x + i*x_tick_spacing;
                 
+                if(i != 0){
+                    lineRGBA(renderer, x, plot->plot_area.y, x, plot->plot_area.y + plot->plot_area.height, 
+                            plot->grid_color.r, plot->grid_color.g, plot->grid_color.b, plot->grid_color.a);
+                }
+
                 // Draw x-axis labels
                 char label[MAX_LABEL_LENGTH];
                 double value;
                 
                 if (plot->x_range.scale_type == SCALE_LOG) {
                     // For logarithmic scale, use logarithmically spaced values
-                    value = adjusted_x_min * pow(adjusted_x_max / adjusted_x_min, (double)i / GRID_LINES);
+                    value = adjusted_x_min + i*plot->x_tick; // TODO: Adjust for log scale
                 } else {
                     // For linear scale, use linearly spaced values
-                    value = adjusted_x_min + (adjusted_x_max - adjusted_x_min) * i / GRID_LINES;
+                    value = adjusted_x_min + i*plot->x_tick;
                 }
                 
-                snprintf(label, MAX_LABEL_LENGTH, "%.2g", value);
+                snprintf(label, MAX_LABEL_LENGTH, "%.3g", value);
                 render_text(renderer, font, label, x, plot->plot_area.y + plot->plot_area.height + 15, plot->text_color, true);
             }
             
             // Horizontal grid lines
-            for (int i = 1; i < GRID_LINES; i++) {
-                int y = plot->plot_area.y + (i * plot->plot_area.height) / GRID_LINES;
-                lineRGBA(renderer, plot->plot_area.x, y, plot->plot_area.x + plot->plot_area.width, y, 
-                        plot->grid_color.r, plot->grid_color.g, plot->grid_color.b, plot->grid_color.a);
+            for (int i = 0; i < y_num_ticks; i++) {
                 
+                int y = plot->plot_area.y + plot->plot_area.height - i*y_tick_spacing;
+                
+                // Draw horizontal grid lines
+                if(i != 0){
+                    lineRGBA(renderer, plot->plot_area.x, y, plot->plot_area.x + plot->plot_area.width, y, 
+                            plot->grid_color.r, plot->grid_color.g, plot->grid_color.b, plot->grid_color.a);
+                }
                 // Draw y-axis labels
                 char label[MAX_LABEL_LENGTH];
                 double value;
                 
                 if (plot->y_range.scale_type == SCALE_LOG) {
                     // For logarithmic scale, use logarithmically spaced values
-                    value = adjusted_y_max * pow(adjusted_y_min / adjusted_y_max, (double)i / GRID_LINES);
+                    value = adjusted_y_min + i*plot->y_tick;
                 } else {
                     // For linear scale, use linearly spaced values
-                    value = adjusted_y_max - (adjusted_y_max - adjusted_y_min) * i / GRID_LINES;
+                    value = adjusted_y_min + i*plot->y_tick;
                 }
                 
-                snprintf(label, MAX_LABEL_LENGTH, "%.2g", value);
+                snprintf(label, MAX_LABEL_LENGTH, "%.3g", value);
                 
                 // FIXED: Position y-axis labels with proper spacing
                 int label_width, label_height;
                 get_text_dimensions(font, label, &label_width, &label_height);
-                render_text(renderer, font, label, plot->plot_area.x - label_width - 5, y, plot->text_color, false);
+                render_text(renderer, font, label, plot->plot_area.x - label_width - 5, y - 9, plot->text_color, false);
             }
         }
         

@@ -193,10 +193,16 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
     Matrix *M_wgate     = diffusion_data -> M_wgate;
     double diffusion    = diffusion_data -> diffusion;
     double cell_size    = diffusion_data -> cell_size;
-    int x_off           = diffusion_data -> excited_cells_pos[0]; // Offset for the x coordinate
-    int y_off           = diffusion_data -> excited_cells_pos[1]; // Offset for the y coordinate
-    int exc_max_x = diffusion_data -> excited_cells[0] + x_off; // Maximum x coordinate for excited cells
-    int exc_max_y = diffusion_data -> excited_cells[1] + y_off; // Maximum y coordinate for excited cells
+
+    int x_off1           = diffusion_data -> excited_cells_pos[0]; // Offset for the x coordinate
+    int y_off1           = diffusion_data -> excited_cells_pos[1]; // Offset for the y coordinate
+    int x_off2           = diffusion_data -> excited_cells_pos[2]; // Offset for the x coordinate
+    int y_off2           = diffusion_data -> excited_cells_pos[3]; // Offset for the y coordinate
+
+    int exc_max_x1 = diffusion_data -> excited_cells[0] + x_off1; // Maximum x coordinate for excited cells
+    int exc_max_y1 = diffusion_data -> excited_cells[1] + y_off1; // Maximum y coordinate for excited cells
+    int exc_max_x2 = diffusion_data -> excited_cells[2] + x_off2; // Maximum x coordinate for excited cells
+    int exc_max_y2 = diffusion_data -> excited_cells[3] + y_off2; // Maximum y coordinate for excited cells
 
 
     bool no_excitation = true; // Flag to control excitation, avoid excitations by default
@@ -209,10 +215,13 @@ int diffusion2D(OdeFunctionParams* ode_input, DiffusionData* diffusion_data, int
 
         for (int i = 1; i < rows-1; i++) {
             for (int j = 1; j < cols-1; j++) {
+                bool is_exc_region1 = (i < exc_max_y1 && j < exc_max_x1 && y_off1 < i && x_off1 < j); // Excitation region 1
+                bool is_exc_region2 = (i < exc_max_y2 && j < exc_max_x2 && y_off2 < i && x_off2 < j); // Excitation region 2
+
                 double y[3] = {MAT(voltage_copy, i, j), MAT(*M_vgate, i, j), MAT(*M_wgate, i, j)};
                 double dydt[3]; // Derivatives
 
-                if (i < exc_max_y && j < exc_max_x && y_off < i && x_off < j) { // Excitation condition
+                if (is_exc_region1 || is_exc_region2) { // Excitation condition
                     no_excitation = false; // Cells to be excited once
                 } else {
                     no_excitation = true; // Cells not to be excited

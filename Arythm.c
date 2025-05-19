@@ -46,8 +46,8 @@ void help_display() {
     printf("  -cellsz <cell_size>       Specify the cell size (default: 1).\n");
     printf("  -diff <diffusion>         Specify the diffusion coefficient (default: 1).\n");
     printf("  -exc <exc_time> <T_tot>   Specify the excitation parameters (default: 1, 300).\n");
-    printf("  -ex_cell <x> <y>          Specify the excited cells (default: 20, 20).\n");
-    printf("  -ex_off <x> <y>         Specify the offset for the excited cells (default: 0, 0).\n");
+    printf("  -ex_cell <x1> <y1> <x2> <y2>   Specify the excited cells (default: 20, 20, 0, 0).\n");
+    printf("  -ex_off  <x1> <y1> <x2> <y2>   Specify the offset for the excited cells (default: 0, 0, 0, 0).\n");
     printf("  -speed <num_frames>       Specify the number of iterations per frame for the 1D plot (default: 5).\n");
     printf("  -h, -help                 Display this help message and exit.\n");
     printf("  -npt <num_points>         Specify the number of points for the bifurcation diagram (default: 100).\n");
@@ -58,8 +58,8 @@ void help_display() {
     printf("  -tissue <x> <y>           Specify the tissue size (default: 100, 100).\n");
     printf("  -vcell                    Plot the single cell potential.\n");
     printf("  -y <V> <v> <w>            Specify the initial values for the ODE system (default: 0.0, 0.9, 0.9).\n");
-    printf("  -1D                       Plot the 1D bifurcation diagram.\n");
-    printf("  -2D                       Plot the 2D bifurcation diagram.\n");
+    printf("  -1D                       Plot the 1D action potential propagation.\n");
+    printf("  -2D                       Plot the 2D diffusion heatmap.\n");
     
     
     printf("\nExamples (default):\n");
@@ -69,7 +69,7 @@ void help_display() {
     printf("You can customise the solver's behaviour using the options above.\n");
 }
 
-int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label, PlotType plot_type) {
+int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label, PlotType plot_type, double axis[4], double* tick_size) {
     
     plot_init(plot); // Initialize the plot
     // Initialize plot properties
@@ -77,10 +77,21 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
     strcpy(plot->x_label, x_label);
     strcpy(plot->y_label, y_label);
 
+    plot->x_range.min = axis[0];
+    plot->x_range.max = axis[1];
+    plot->y_range.min = axis[2];
+    plot->y_range.max = axis[3];
+
+    if(tick_size != NULL){
+        plot->x_tick = tick_size[0];
+        plot->y_tick = tick_size[1];
+        plot->use_ticks = true;
+    }
+
     // Add series to the plot
     plot_add_series(plot, x, y, title,
         (Color){0, 0, 0, 255}, // Black
-        LINE_SOLID, MARKER_NONE, 1, 2, plot_type);
+        LINE_SOLID, MARKER_CIRCLE, 1, 2, plot_type);
 
     // Show the plot
     PlotError error = plot_show(plot);
@@ -183,7 +194,9 @@ void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParam
     APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
 
     Plot bifurcationPlot;
-    single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "DP", "APD", PLOT_SCATTER);
+    double axis[4] = {100, 300, 50, 200};
+    double tick_size[2] = {25, 25};
+    single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "APD + DP (ms)", "APD (ms)", PLOT_SCATTER, axis, tick_size);
 }
 
 void parse_input(int argc, char *argv[], InputParams *input) {
@@ -196,8 +209,13 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
     input -> excited_cells[0] = 100;
     input -> excited_cells[1] = 5;
+    input -> excited_cells[2] = 0;
+    input -> excited_cells[3] = 0;
+
     input -> excited_cells_pos[0] = 0;
     input -> excited_cells_pos[1] = 0;
+    input -> excited_cells_pos[2] = 0;
+    input -> excited_cells_pos[3] = 0;
     
     input -> plot_bifurcation_diagram = false;
     input -> plot_singlecell_potential = false;
@@ -308,15 +326,15 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
             input->diffusion = atof(argv[++i]);
             
-        } else if (strcmp(argv[i], "-ex_cell") == 0 && i + 2 < argc){
+        } else if (strcmp(argv[i], "-ex_cell") == 0 && i + 4 < argc){
 
-            for (int j = 0; j < 2; j++) {
+            for (int j = 0; j < 4; j++) {
                 input->excited_cells[j] = atof(argv[++i]);
             }
             
-        } else if (strcmp(argv[i], "-ex_off") == 0 && i + 2 < argc){
+        } else if (strcmp(argv[i], "-ex_off") == 0 && i + 4 < argc){
 
-            for (int j = 0; j < 2; j++) {
+            for (int j = 0; j < 4; j++) {
                 input->excited_cells_pos[j] = atof(argv[++i]);
             }
             
@@ -351,9 +369,11 @@ int main(int argc, char *argv[])
 
         Vector time = read_matrix_row(&result, 0); // Time data is stored in the first row
         Vector voltage = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
+        double axis[4] = {0,10,0,10};
 
         Plot Alternance;
-        single_plot(&Alternance, &time, &voltage, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE);
+        double tick_size[2] = {100, 0.1};
+        single_plot(&Alternance, &time, &voltage, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE, axis, tick_size);
 
         free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     }
@@ -453,8 +473,8 @@ int main(int argc, char *argv[])
             .M_wgate   = &M_wgate,
             .diffusion = input.diffusion,
             .cell_size = input.cell_size,
-            .excited_cells = {input.excited_cells[0], input.excited_cells[1]},
-            .excited_cells_pos = {input.excited_cells_pos[0], input.excited_cells_pos[1]}
+            .excited_cells = {input.excited_cells[0], input.excited_cells[1], input.excited_cells[2], input.excited_cells[3]},  
+            .excited_cells_pos = {input.excited_cells_pos[0], input.excited_cells_pos[1], input.excited_cells_pos[2], input.excited_cells_pos[3]}
         };
 
         Plot diffusion_plot;
