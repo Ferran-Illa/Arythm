@@ -15,18 +15,18 @@ Vector read_matrix_row(Matrix *matrix, int row){ // Reads a row of a Matrix as i
 }
 
 // It first finds an upwards crossing point (y>threshold) and then a downwards crossing point (y<threshold) to find the APD and DP values.
-Vector find_values(const Vector time_t , const Vector y_t, int num_excitations, int num_steps, double step_size, double threshold) {
+Vector find_values(const Vector x , const Vector y, int num_excitations, int num_steps, double step_size, double threshold) {
     Vector ans= create_vector(2*num_excitations);
     bool STATE=1;
     int j = 0;
     for (int i = 0; i < num_steps; i++) {
-        if (VEC(y_t, i) > threshold && STATE) {
-            VEC(ans, j) = VEC(time_t, i) - step_size*(VEC(y_t, i) - threshold)/(VEC(y_t, i) - VEC(y_t, i-1)); // Interpolate the crossing point
+        if (VEC(y, i) > threshold && STATE) {
+            VEC(ans, j) = VEC(x, i) - step_size*(VEC(y, i) - threshold)/(VEC(y, i) - VEC(y, i-1)); // Interpolate the crossing point
             STATE=!STATE;
             j++;
         }
-        if (VEC(y_t, i) < threshold && !STATE ) {
-            VEC(ans, j) = VEC(time_t, i) - step_size*(threshold - VEC(y_t, i))/(VEC(y_t, i-1) - VEC(y_t, i));
+        if (VEC(y, i) < threshold && !STATE ) {
+            VEC(ans, j) = VEC(x, i) - step_size*(threshold - VEC(y, i))/(VEC(y, i-1) - VEC(y, i));
             STATE=!STATE;+
             j++;
         }
@@ -42,6 +42,7 @@ void help_display() {
     printf("Usage: ./SingleCell.sh [OPTIONS]\n");
     printf("Options:\n");
     printf("  -bif                      Plot the bifurcation diagram.\n");
+    printf("  -bif_1D, -1D_bif          Plot the bifurcation diagram in 1D.\n");
     printf("  -bif_set <T_exc> <T_tot_min> <T_tot_max> Specify bifurcation parameters (default: 1, 300, 400).\n");
     printf("  -cellsz <cell_size>       Specify the cell size (default: 1).\n");
     printf("  -diff <diffusion>         Specify the diffusion coefficient (default: 1).\n");
@@ -69,7 +70,7 @@ void help_display() {
     printf("You can customise the solver's behaviour using the options above.\n");
 }
 
-int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label, PlotType plot_type, double axis[4], double* tick_size) {
+int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, char *y_label, PlotType plot_type, double axis[4], double tick_size[2]) {
     
     plot_init(plot); // Initialize the plot
     // Initialize plot properties
@@ -77,10 +78,12 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
     strcpy(plot->x_label, x_label);
     strcpy(plot->y_label, y_label);
 
-    plot->x_range.min = axis[0];
-    plot->x_range.max = axis[1];
-    plot->y_range.min = axis[2];
-    plot->y_range.max = axis[3];
+    if(axis != NULL){
+        plot->x_range.min = axis[0];
+        plot->x_range.max = axis[1];
+        plot->y_range.min = axis[2];
+        plot->y_range.max = axis[3];
+    }
 
     if(tick_size != NULL){
         plot->x_tick = tick_size[0];
@@ -199,13 +202,81 @@ void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParam
     single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "APD + DP (ms)", "APD (ms)", PLOT_SCATTER, axis, tick_size);
 }
 
+void bifurcation_diagram_1D(double bifurcation[3], int num_points, OdeFunctionParams ode_input, DiffusionData diffusion_data, Vector* position) {
+
+    // Extract parameters from the input structure. Beware that ode_input is not changed!
+    int     frames;
+    double  step_size = ode_input.step_size;
+    
+    double t_tot_min = bifurcation[1];
+    double t_tot_max = bifurcation[2];
+    double t_tot_step = (t_tot_max - t_tot_min) / (num_points - 1); // Step size for total excitation duration
+
+    Vector APD = create_vector(2*num_points); // Create a vector to store the APD values.
+    Vector Pulse = create_vector(2*num_points); // Create a vector to store the DP values.
+
+    int total_excitations = 0; // Total number of excitations found so far
+
+    // Loop over T_exc values
+    for (int i = 0; i < num_points; i++) {
+        ode_input.excitation[1] = t_tot_max - i * t_tot_step; // T_exc
+        frames = (int) 2*(ode_input.excitation[1]/step_size) - 1; // Update the necessary frames for each iteration
+
+        diffusion1D(&ode_input, &diffusion_data, frames); // Call the diffusion function
+        diffusion_data.time += frames*step_size; // Add the elapsed time for the next iteration
+
+        Vector M_voltage_vec;
+
+        M_voltage_vec.data = diffusion_data.M_voltage->data; // Read M_voltage linearly
+        M_voltage_vec.size =diffusion_data.M_voltage->cols * diffusion_data.M_voltage->rows; // Number of elements in the matrix
+        
+        if(M_voltage_vec.size != position->size){
+            printf("ERROR: The size of the voltage vector does not match the size of the position vector.\n");
+            return;
+        }
+        Vector cross_points = find_values(*position, M_voltage_vec, 2, M_voltage_vec.size, diffusion_data.cell_size, ode_input.param[12]); // Find the crossing points for the first 10 j
+           
+        /* 
+         * Due to the design of find_values(),
+         * the even indices of cross_points indicate the start of the APD phase (and end of the DP phase),
+         * the odd ones mark its end and the start of the DP phase. (When reading data from left ro right)
+        */ 
+        int index = 0; // No pulses are ignored     
+            
+        for(int j = 0; j < 4; j+=2){ // number of crossings (pulses*2) to consider
+            if(index + j + 2 <= cross_points.size) {        
+                Pulse.data[total_excitations] = ode_input.excitation[1]; // Store the excitation period
+                APD.data[ total_excitations] = ode_input.excitation[1] * ( 1 - VEC(cross_points, index + j)/VEC(cross_points, index + j+1) ); // Calculate APD duration
+
+                total_excitations += 1; // Update the total number of excitations found
+            }
+
+        }
+        // Plot the results (debugging)
+        /*
+        Plot Alternance;
+        double axis[4] = {0, diffusion_data.cell_size*position->size, 0, 1.5};
+        double axis_tick[2] = {100, 0.1};
+        single_plot(&Alternance, position, &M_voltage_vec, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE, axis, axis_tick);    
+        */
+    }
+
+    Pulse.size = total_excitations; // Update the size of the vector to the number of crossing points found
+    APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
+
+    Plot bifurcationPlot;
+    double axis[4] = {50, 200, 150, 400};
+    double tick_size[2] = {25, 25};
+    single_plot(&bifurcationPlot, &Pulse, &APD, "Bifurcation Diagram", "Excitation Period (ms)", "APD (ms)", PLOT_SCATTER, axis, tick_size);
+}
+
 void parse_input(int argc, char *argv[], InputParams *input) {
     // Default values
     input -> step_size = 0.05;
     input -> num_steps = 30000;
     input -> num_points = 100;
-    input -> tissue_size[0] = 150;
-    input -> tissue_size[1] = 150;
+    input -> tissue_size[0] = 900;
+    input -> tissue_size[1] = 50;
 
     input -> excited_cells[0] = 100;
     input -> excited_cells[1] = 5;
@@ -217,7 +288,8 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> excited_cells_pos[2] = 0;
     input -> excited_cells_pos[3] = 0;
     
-    input -> plot_bifurcation_diagram = false;
+    input -> plot_bifurcation_0D = false;
+    input -> plot_bifurcation_1D = false;
     input -> plot_singlecell_potential = false;
     input -> plot_1D = false;
     input -> plot_2D = false;
@@ -235,12 +307,12 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
     // Default excitation and bifurcation parameters
     input -> excitation[0] = 2.5;
-    input -> excitation[1] = 250;
-    input -> excitation[2] = 300;
+    input -> excitation[1] = 500;
+    input -> excitation[2] = 700;
 
     input -> bifurcation[0] = 2.55;
-    input -> bifurcation[1] = 120;
-    input -> bifurcation[2] = 350;
+    input -> bifurcation[1] = 240;
+    input -> bifurcation[2] = 600;
 
     input -> diffusion = 1;
     input -> cell_size = 1;
@@ -288,7 +360,7 @@ void parse_input(int argc, char *argv[], InputParams *input) {
 
         } else if (strcmp(argv[i], "-bif") == 0) {
             
-            input->plot_bifurcation_diagram = true;
+            input->plot_bifurcation_0D = true;
 
         } else if (strcmp(argv[i], "-bif_set") == 0 && i + 3 < argc) {
             
@@ -338,7 +410,11 @@ void parse_input(int argc, char *argv[], InputParams *input) {
                 input->excited_cells_pos[j] = atof(argv[++i]);
             }
             
-        } else {
+        } else if (strcmp(argv[i], "-1D_bif") == 0 || strcmp(argv[i], "-bif_1D") == 0){
+            
+            input -> plot_bifurcation_1D = true;
+
+        } else{
             fprintf(stderr, "Unknown option: %s\n", argv[i]);
             help_display();
             exit(1);
@@ -379,7 +455,7 @@ int main(int argc, char *argv[])
     }
     
     // Plot the bifurcation diagram
-    if(input.plot_bifurcation_diagram) {
+    if(input.plot_bifurcation_0D) {
         bifurcation_diagram(input.bifurcation, input.num_points, ode_input); // Call the bifurcation diagram function
     }
     
@@ -432,6 +508,15 @@ int main(int argc, char *argv[])
         M_pos_vec.data = M_pos.data; // Read M_pos linearly
         M_pos_vec.size = M_pos.cols*M_pos.rows; // Number of elements in the matrix
 
+        diffusion_plot.x_range.min = 0;
+        diffusion_plot.x_range.max = input.tissue_size[0]*input.cell_size;
+        diffusion_plot.y_range.min = 0;
+        diffusion_plot.y_range.max = 1.5;
+
+        diffusion_plot.x_tick = 25;
+        diffusion_plot.y_tick = 0.1;
+        diffusion_plot.use_ticks = true;
+
         plot_add_series(&diffusion_plot, &M_pos_vec, &M_voltage_vec, "Diffusion in 1D", (Color){0, 0, 0, 255}, LINE_SOLID, MARKER_CIRCLE, 1, 2, PLOT_LINE);
         plot_config_video(&diffusion_plot, true, diffusion1D, &diffusion_config, &ode_input, input.frame_speed); // Dynamic plot
 
@@ -443,6 +528,43 @@ int main(int argc, char *argv[])
 
         // Clean up
         plot_cleanup(&diffusion_plot);
+    }
+
+    if(input.plot_bifurcation_1D)
+    {
+        // Initialization
+        // What was once an array is now a "matrix", three vectors.
+        int cols = input.tissue_size[0];
+
+        Matrix M_voltage = create_matrix(1, cols); 
+        Matrix M_vgate   = create_matrix(1, cols);
+        Matrix M_wgate   = create_matrix(1, cols);
+        Matrix M_pos     = create_matrix(1, cols); // Index vector for the cells
+
+        // Set the initial conditions for each grid point
+        for(int i = 0; i < cols; i++){
+            M_voltage.data[i] = input.initial_y[0];
+            M_vgate.data[i]   = input.initial_y[1];
+            M_wgate.data[i]   = input.initial_y[2];
+            M_pos.data[i]     = i*input.cell_size; // Set the position of each cell
+        }
+
+        // Time Evolution
+        DiffusionData diffusion_config = {
+            .time = 0.0,
+            .M_voltage = &M_voltage,
+            .M_vgate   = &M_vgate,
+            .M_wgate   = &M_wgate,
+            .diffusion = input.diffusion,
+            .cell_size = input.cell_size,
+            .excited_cells = {input.excited_cells[0], input.excited_cells[1]}
+        };
+
+        Vector M_pos_vec;
+        M_pos_vec.data = M_pos.data; // Read M_pos linearly
+        M_pos_vec.size = M_pos.cols*M_pos.rows; // Number of elements in the matrix
+
+        bifurcation_diagram_1D(input.bifurcation, input.num_points, ode_input, diffusion_config, &M_pos_vec); // Call the bifurcation diagram function
     }
 
     // Plot the 2D bifurcation diagram

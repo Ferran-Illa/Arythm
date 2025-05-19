@@ -25,7 +25,8 @@ typedef struct {
 
 typedef struct {
 
-    bool plot_bifurcation_diagram;
+    bool plot_bifurcation_0D;
+    bool plot_bifurcation_1D;
     bool plot_singlecell_potential;
     bool plot_1D;
     bool plot_2D;
