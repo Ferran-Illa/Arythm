@@ -94,7 +94,7 @@ int single_plot(Plot *plot, Vector *x, Vector *y, char *title, char *x_label, ch
     // Add series to the plot
     plot_add_series(plot, x, y, title,
         (Color){0, 0, 0, 255}, // Black
-        LINE_SOLID, MARKER_CIRCLE, 1, 2, plot_type);
+        LINE_SOLID, MARKER_SQUARE, 1, 1, plot_type);
 
     // Show the plot
     PlotError error = plot_show(plot);
@@ -199,7 +199,7 @@ void bifurcation_diagram(double bifurcation[3], int num_points, OdeFunctionParam
     Plot bifurcationPlot;
     double axis[4] = {100, 300, 50, 200};
     double tick_size[2] = {25, 25};
-    single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "APD + DP (ms)", "APD (ms)", PLOT_SCATTER, axis, tick_size);
+    single_plot(&bifurcationPlot, &DP, &APD, "Bifurcation Diagram", "APD + DI (ms)", "APD (ms)", PLOT_SCATTER, axis, tick_size);
 }
 
 void bifurcation_diagram_1D(double bifurcation[3], int num_points, OdeFunctionParams ode_input, DiffusionData diffusion_data, Vector* position) {
@@ -217,13 +217,20 @@ void bifurcation_diagram_1D(double bifurcation[3], int num_points, OdeFunctionPa
 
     int total_excitations = 0; // Total number of excitations found so far
 
+    // Skipping a few excitations to stabilize
+    ode_input.excitation[1] = t_tot_max; // T_exc
+    frames = (int) 2*(ode_input.excitation[1]/step_size) - 1; // Update the necessary frames for each iteration
+
+    diffusion1D(&ode_input, &diffusion_data, frames); // Call the diffusion function
+    //diffusion_data.time += frames*step_size; // Add the elapsed time for the next iteration
+
     // Loop over T_exc values
     for (int i = 0; i < num_points; i++) {
         ode_input.excitation[1] = t_tot_max - i * t_tot_step; // T_exc
         frames = (int) 2*(ode_input.excitation[1]/step_size) - 1; // Update the necessary frames for each iteration
 
         diffusion1D(&ode_input, &diffusion_data, frames); // Call the diffusion function
-        diffusion_data.time += frames*step_size; // Add the elapsed time for the next iteration
+        //diffusion_data.time += frames*step_size; // Add the elapsed time for the next iteration
 
         Vector M_voltage_vec;
 
@@ -246,26 +253,29 @@ void bifurcation_diagram_1D(double bifurcation[3], int num_points, OdeFunctionPa
         for(int j = 0; j < 4; j+=2){ // number of crossings (pulses*2) to consider
             if(index + j + 2 <= cross_points.size) {        
                 Pulse.data[total_excitations] = ode_input.excitation[1]; // Store the excitation period
-                APD.data[ total_excitations] = ode_input.excitation[1] * ( 1 - VEC(cross_points, index + j)/VEC(cross_points, index + j+1) ); // Calculate APD duration
+                double inv_speed = ode_input.excitation[1] /VEC(cross_points, 1);
+                APD.data[ total_excitations] = inv_speed * ( VEC(cross_points, index + j+1) - VEC(cross_points, index + j) ); // Calculate APD duration
 
                 total_excitations += 1; // Update the total number of excitations found
             }
 
         }
         // Plot the results (debugging)
-        /*
-        Plot Alternance;
-        double axis[4] = {0, diffusion_data.cell_size*position->size, 0, 1.5};
-        double axis_tick[2] = {100, 0.1};
-        single_plot(&Alternance, position, &M_voltage_vec, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE, axis, axis_tick);    
+       /*
+        if(i <= 1 || i >= num_points-1){ 
+            Plot Alternance;
+            double axis[4] = {0, 1000, 0, 1.5};
+            double axis_tick[2] = {100, 0.1};
+            single_plot(&Alternance, position, &M_voltage_vec, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE, axis, axis_tick);    
+       }
         */
     }
 
     Pulse.size = total_excitations; // Update the size of the vector to the number of crossing points found
     APD.size = total_excitations; // Update the size of the vector to the number of crossing points found
-
+    
     Plot bifurcationPlot;
-    double axis[4] = {50, 200, 150, 400};
+    double axis[4] = {150, 350, 75, 200};
     double tick_size[2] = {25, 25};
     single_plot(&bifurcationPlot, &Pulse, &APD, "Bifurcation Diagram", "Excitation Period (ms)", "APD (ms)", PLOT_SCATTER, axis, tick_size);
 }
@@ -274,11 +284,11 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     // Default values
     input -> step_size = 0.05;
     input -> num_steps = 30000;
-    input -> num_points = 100;
-    input -> tissue_size[0] = 900;
-    input -> tissue_size[1] = 50;
+    input -> num_points = 150;
+    input -> tissue_size[0] = 250;
+    input -> tissue_size[1] = 250;
 
-    input -> excited_cells[0] = 100;
+    input -> excited_cells[0] = 10;
     input -> excited_cells[1] = 5;
     input -> excited_cells[2] = 0;
     input -> excited_cells[3] = 0;
@@ -298,23 +308,24 @@ void parse_input(int argc, char *argv[], InputParams *input) {
     input -> frame_speed = 20;
 
     input -> initial_y[0] = 0.0;
-    input -> initial_y[1] = 0.99;
-    input -> initial_y[2] = 0.99;
+    input -> initial_y[1] = 0.95;
+    input -> initial_y[2] = 0.95;
 
     // Default parameters
-    double default_param[14] = {3.33, 15.6, 5, 350, 80, 0.407, 9, 34, 26.5, 15, 0.45, 0.15, 0.04, 0.1};
+    double default_param[14] = {3.33, 15.6, 5, 350, 80, 0.407, 9, 34, 26.5, 15, 0.45, 0.15, 0.04, 0.2}; // Set 4
+    //double default_param[14] = {3.33, 19.6, 1000, 667, 11, 0.25, 8.3, 50, 45, 10, 0.85, 0.13, 0.055, 0.1};
     memcpy(input->param, default_param, sizeof(default_param));
 
     // Default excitation and bifurcation parameters
     input -> excitation[0] = 2.5;
-    input -> excitation[1] = 500;
+    input -> excitation[1] = 250;
     input -> excitation[2] = 700;
 
     input -> bifurcation[0] = 2.55;
-    input -> bifurcation[1] = 240;
-    input -> bifurcation[2] = 600;
+    input -> bifurcation[1] = 100;
+    input -> bifurcation[2] = 350;
 
-    input -> diffusion = 1;
+    input -> diffusion = 1; // 1.5*10^-3
     input -> cell_size = 1;
 
     // Parse command-line arguments
@@ -445,11 +456,11 @@ int main(int argc, char *argv[])
 
         Vector time = read_matrix_row(&result, 0); // Time data is stored in the first row
         Vector voltage = read_matrix_row(&result, 1); // ODE Voltage values are stored in the second row
-        double axis[4] = {0,10,0,10};
+        double axis[4] = {0,1000,0,1.5};
 
         Plot Alternance;
         double tick_size[2] = {100, 0.1};
-        single_plot(&Alternance, &time, &voltage, "Alternance", "Time (s)", "Voltage (V)", PLOT_LINE, axis, tick_size);
+        single_plot(&Alternance, &time, &voltage, "Alternance", "Time (ms)", "Voltage (V)", PLOT_LINE, axis, tick_size);
 
         free_matrix(&result); // Free the matrix after use, vectors are freed too with this action.
     }
@@ -477,7 +488,7 @@ int main(int argc, char *argv[])
             M_voltage.data[i] = input.initial_y[0];
             M_vgate.data[i]   = input.initial_y[1];
             M_wgate.data[i]   = input.initial_y[2];
-            M_pos.data[i]     = i*input.cell_size; // Set the position of each cell
+            M_pos.data[i]     = i*input.cell_size*0.4; // Set the size of the considered cell group (.4mm)
         }
 
         // Time Evolution
@@ -495,7 +506,7 @@ int main(int argc, char *argv[])
         plot_init(&diffusion_plot); // Initialize the plot
 
         strcpy(diffusion_plot.title, "Diffusion 1D");
-        strcpy(diffusion_plot.x_label, "Distance (x)");
+        strcpy(diffusion_plot.x_label, "Distance (mm)");
         strcpy(diffusion_plot.y_label, "Voltage (V)");
 
         // Add series to the plot
@@ -509,11 +520,11 @@ int main(int argc, char *argv[])
         M_pos_vec.size = M_pos.cols*M_pos.rows; // Number of elements in the matrix
 
         diffusion_plot.x_range.min = 0;
-        diffusion_plot.x_range.max = input.tissue_size[0]*input.cell_size;
+        diffusion_plot.x_range.max = input.tissue_size[0]*input.cell_size*0.4;
         diffusion_plot.y_range.min = 0;
         diffusion_plot.y_range.max = 1.5;
 
-        diffusion_plot.x_tick = 25;
+        diffusion_plot.x_tick = 50;
         diffusion_plot.y_tick = 0.1;
         diffusion_plot.use_ticks = true;
 

@@ -5,12 +5,12 @@
 
 #define DEFAULT_WINDOW_WIDTH 800
 #define DEFAULT_WINDOW_HEIGHT 600
-#define DEFAULT_MARGIN 70
+#define DEFAULT_MARGIN 80
 #define TICK_SIZE 5
 #define GRID_LINES 11
 #define MAX_LABEL_LENGTH 64
 #define MAX_DATA_SERIES 10
-#define DEFAULT_FONT_SIZE 14
+#define DEFAULT_FONT_SIZE 18
 #define DEFAULT_FONT_PATH "/usr/share/fonts/truetype/msttcorefonts/times.ttf"
 
 
